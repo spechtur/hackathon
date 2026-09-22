@@ -506,7 +506,6 @@ ol.steps li{ display:flex; gap:13px; }
         <button class="btn" data-pane="tools" role="tab"><span>🛠</span><span>Tools</span></button>
         <button class="btn" data-pane="feedback" role="tab"><span>💬</span><span>Feedback</span></button>
         <button class="btn" data-pane="share" role="tab"><span>📱</span><span>Teilen</span></button>
-        <button class="btn" data-pane="einstellen" role="tab"><span>⚙️</span><span>Einstellen</span></button>
         <button class="btn" data-pane="notes" role="tab"><span>📝</span><span>Notizen</span></button>
       </div>
 
@@ -569,8 +568,54 @@ ol.steps li{ display:flex; gap:13px; }
 
         <!-- Tools -->
         <div class="pane" id="p-tools">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="lbl" style="margin:0;">Werkzeuge</span>
+            <div class="spacer"></div>
+            <button class="btn btn-sm" id="b-edit" aria-pressed="false">✏️ Anpassen</button>
+          </div>
           <p class="hint" id="tools-why"></p>
+
           <div id="tools-out" style="display:flex; flex-direction:column; gap:10px;"></div>
+
+          <div id="tools-edit" hidden style="display:flex; flex-direction:column; gap:13px;">
+            <p class="hint">Änderungen gelten sofort und reisen über den QR-Code zur Klasse mit.</p>
+          <div>
+            <span class="lbl">Veröffentlichungsweg</span>
+            <select id="e-weg">
+              <option value="klassenkonto">Klassen-Konto auf GitHub</option>
+              <option value="toolLink">Link des eigenen Werkzeugs</option>
+              <option value="schulcloud">Schul-Cloud</option>
+              <option value="aus">Nicht veröffentlichen</option>
+            </select>
+          </div>
+
+          <div id="e-konto-block">
+            <span class="lbl">Klassen-Konto</span>
+            <input type="text" id="e-konto" placeholder="klasse-3os" style="margin-bottom:6px;">
+            <span class="lbl">Ordner heissen</span>
+            <input type="text" id="e-repo" placeholder="gruppe-" style="margin-bottom:8px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:.85rem; cursor:pointer;">
+              <input type="checkbox" id="e-pages" style="width:auto;"> GitHub Pages ist schon eingeschaltet
+            </label>
+          </div>
+
+          <div class="divider"></div>
+
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span class="lbl" style="margin:0;">Werkzeuge für die Klasse</span>
+              <div class="spacer"></div>
+              <button class="btn btn-sm btn-ghost" id="e-reset-tools" title="Liste aus der Datei wiederherstellen">↺</button>
+            </div>
+            <div id="e-tools" style="display:flex; flex-direction:column; gap:9px;"></div>
+            <button class="btn btn-sm" id="e-add-tool" style="width:100%; margin-top:9px;">+ Werkzeug hinzufügen</button>
+          </div>
+
+          <div class="divider"></div>
+          <button class="btn btn-accent" id="e-copy">📋 Als Textblock für die Datei kopieren</button>
+          <p class="hint">Damit die Änderungen auch nach dem Schliessen bleiben: Knopf drücken,
+             dann den kopierten Block in der Datei bei <code>werkzeuge</code> einsetzen.</p>
+          </div>
         </div>
 
         <!-- Feedback -->
@@ -609,49 +654,6 @@ ol.steps li{ display:flex; gap:13px; }
                die Klasse käme nicht an deinen Laptop heran.</p>
           </div>
           <button class="btn" id="share-big">⛶ Gross auf den Beamer</button>
-        </div>
-
-        <!-- Einstellen -->
-        <div class="pane" id="p-einstellen">
-          <p class="hint">Alles hier gilt sofort — und wird über den QR-Code auch an die Klasse
-             weitergegeben. Dauerhaft speichern lässt es sich mit dem Knopf ganz unten.</p>
-
-          <div>
-            <span class="lbl">Veröffentlichungsweg</span>
-            <select id="e-weg">
-              <option value="klassenkonto">Klassen-Konto auf GitHub</option>
-              <option value="toolLink">Link des eigenen Werkzeugs</option>
-              <option value="schulcloud">Schul-Cloud</option>
-              <option value="aus">Nicht veröffentlichen</option>
-            </select>
-          </div>
-
-          <div id="e-konto-block">
-            <span class="lbl">Klassen-Konto</span>
-            <input type="text" id="e-konto" placeholder="klasse-3os" style="margin-bottom:6px;">
-            <span class="lbl">Ordner heissen</span>
-            <input type="text" id="e-repo" placeholder="gruppe-" style="margin-bottom:8px;">
-            <label style="display:flex; align-items:center; gap:8px; font-size:.85rem; cursor:pointer;">
-              <input type="checkbox" id="e-pages" style="width:auto;"> GitHub Pages ist schon eingeschaltet
-            </label>
-          </div>
-
-          <div class="divider"></div>
-
-          <div>
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span class="lbl" style="margin:0;">Werkzeuge für die Klasse</span>
-              <div class="spacer"></div>
-              <button class="btn btn-sm btn-ghost" id="e-reset-tools" title="Liste aus der Datei wiederherstellen">↺</button>
-            </div>
-            <div id="e-tools" style="display:flex; flex-direction:column; gap:9px;"></div>
-            <button class="btn btn-sm" id="e-add-tool" style="width:100%; margin-top:9px;">+ Werkzeug hinzufügen</button>
-          </div>
-
-          <div class="divider"></div>
-          <button class="btn btn-accent" id="e-copy">📋 Als Textblock für die Datei kopieren</button>
-          <p class="hint">Damit die Änderungen auch nach dem Schliessen bleiben: Knopf drücken,
-             dann den kopierten Block in der Datei bei <code>werkzeuge</code> einsetzen.</p>
         </div>
 
         <!-- Notizen -->
@@ -767,6 +769,10 @@ const CONFIG = {
      selbst aus, bevor du damit vor die Klasse stehst — Anmeldepflicht,
      Altersgrenzen und Gratis-Kontingente ändern sich laufend.
 
+     Die beiden ersten Einträge laufen bewusst ohne Konto — das ist bei
+     Minderjährigen der entscheidende Punkt. Prüfe trotzdem selbst nach:
+     Anbieter ändern ihre Bedingungen.
+
      zugang:  "offen"       = ohne Konto nutzbar
               "lehrperson"  = läuft über deinen Zugang
               "konto"       = braucht ein eigenes Konto (Altersgrenze prüfen!)
@@ -775,18 +781,16 @@ const CONFIG = {
 
     // Für alle Wege ausser "toolLink": liefern eine einzelne HTML-Datei.
     einzeldatei: [
-      { name:"KI-Zugang der Schule", url:"https://chatgpt.com", zugang:"lehrperson",
-        zweck:"bauen",
-        text:"Der Zugang, den deine Lehrperson eingerichtet hat. Sag der KI, sie soll dir eine "
-            +"vollständige HTML-Datei schreiben — mit allem drin." },
-      { name:"Claude", url:"https://claude.ai", zugang:"konto", zweck:"bauen",
-        text:"Zeigt das Ergebnis gleich als Vorschau neben dem Chat an und lässt die Datei "
-            +"herunterladen." },
-      { name:"ChatGPT", url:"https://chatgpt.com", zugang:"konto", zweck:"bauen",
-        text:"Kann Code schreiben und im Canvas direkt bearbeiten." },
+      { name:"Duck.ai", url:"https://duck.ai", zugang:"offen", zweck:"bauen",
+        text:"KI-Chat ohne Konto und ohne Anmeldung. Sag ihr, sie soll dir eine "
+            +"vollständige HTML-Datei schreiben." },
+      { name:"Lumo", url:"https://lumo.proton.me/guest", zugang:"offen", zweck:"bauen",
+        text:"KI-Chat von Proton im Gastmodus. Ebenfalls ohne Konto nutzbar." },
+      { name:"KI-Zugang der Schule", url:"https://chatgpt.com", zugang:"lehrperson", zweck:"bauen",
+        text:"Der Zugang, den deine Lehrperson eingerichtet hat — falls vorhanden." },
       { name:"CodePen", url:"https://codepen.io/pen", zugang:"offen", zweck:"testen",
-        text:"Code einfügen und sofort laufen sehen. Schreibt selbst nichts — zum Ausprobieren "
-            +"und Weiterbasteln." }
+        text:"Code einfügen und sofort laufen sehen. Schreibt selbst nichts — zum "
+            +"Ausprobieren und Weiterbasteln." }
     ],
 
     // Nur sichtbar, wenn der Weg "toolLink" eingestellt ist: diese Werkzeuge
@@ -1532,16 +1536,25 @@ const QRCode = (function () {
       for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
         if (!reserved[r][c] && MASKS[maskId](r, c)) m[r][c] ^= 1;
 
+      // Formatinformation an beiden vorgeschriebenen Stellen ablegen.
+      // Achtung: senkrechter und waagrechter Lauf gehoeren NICHT zur selben
+      // Kopie. Kopie 1 ist die L-Form um den oberen linken Sucher (Spalte 8
+      // oben + Zeile 8 links), Kopie 2 liegt verteilt auf Zeile 8 rechts und
+      // Spalte 8 unten. Vertauscht man das, sieht der Code richtig aus, laesst
+      // sich aber von keinem Scanner lesen.
       const fb = formatBits(maskId, stufe);
       for (let i = 0; i < 15; i++) {
         const bit = (fb >> i) & 1;
-        if (i < 6)       m[8][i] = bit;
-        else if (i < 8)  m[8][i + 1] = bit;
-        else if (i === 8) m[7][8] = bit;
-        else              m[14 - i][8] = bit;
 
-        if (i < 8)       m[size - 1 - i][8] = bit;
-        else             m[8][size - 15 + i] = bit;
+        // senkrechter Lauf in Spalte 8
+        if (i < 6)        m[i][8] = bit;              // Zeilen 0-5
+        else if (i < 8)   m[i + 1][8] = bit;          // Zeilen 7 und 8
+        else              m[size - 15 + i][8] = bit;  // Zeilen size-7 .. size-1
+
+        // waagrechter Lauf in Zeile 8
+        if (i < 8)        m[8][size - 1 - i] = bit;   // Spalten size-1 .. size-8
+        else if (i === 8) m[8][7] = bit;
+        else              m[8][14 - i] = bit;         // Spalten 5 .. 0
       }
       m[size - 8][8] = 1;
 
@@ -1934,6 +1947,10 @@ function timerStart() {
   if (state.running || state.sec === 0) return;
   state.running = true;
   state.deadline = Date.now() + state.sec * 1000;   // für die Weitergabe an die Klasse
+  // Ablegen, damit eine Schüler-Ansicht auf DEMSELBEN Gerät (zweiter Tab,
+  // zweiter Bildschirm) sofort mitbekommt, dass der Timer läuft. Auf fremden
+  // Geräten geht das nicht — dort führt der Weg über den QR-Code.
+  LS.set("uhr", { e: Math.round(state.deadline / 1000), d: state.secTotal });
   $("#t-go").textContent = "⏸ Pause"; $("#t-go").classList.remove("btn-solid");
   state.tick = setInterval(() => {
     state.sec = Math.max(0, state.sec - 1);
@@ -1944,6 +1961,7 @@ function timerStart() {
 }
 function timerStop() {
   state.running = false; state.deadline = 0; clearInterval(state.tick);
+  if (root.getAttribute("data-view") !== "sus") LS.del("uhr");
   $("#t-go").textContent = "▶ Start"; $("#t-go").classList.add("btn-solid");
   zeigeTimer(); zeichneShare();
 }
@@ -2346,6 +2364,17 @@ document.addEventListener("DOMContentLoaded", () => {
     $("#sheet-qr").classList.add("on");
   };
 
+  /* Werkzeuge: zwischen Anzeigen und Bearbeiten umschalten */
+  $("#b-edit").onclick = () => {
+    const an = $("#tools-edit").hidden;
+    $("#tools-edit").hidden = !an;
+    $("#tools-out").hidden  = an;
+    $("#b-edit").setAttribute("aria-pressed", an);
+    $("#b-edit").classList.toggle("is-on", an);
+    $("#b-edit").textContent = an ? "✓ Fertig" : "✏️ Anpassen";
+    if (an) zeichneEinstellungen();
+  };
+
   /* Einstellen */
   $("#e-weg").onchange = (e) => {
     EINST.weg = e.target.value;
@@ -2422,6 +2451,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.addEventListener("hashchange", setzeAnsicht);
+
+  /* Ein anderer Tab desselben Geräts hat den Timer gestartet oder gestoppt.
+     Das Ereignis feuert nur in FREMDEN Tabs, nicht im auslösenden. */
+  window.addEventListener("storage", (e) => {
+    if (e.key !== "vc_uhr" || root.getAttribute("data-view") !== "sus") return;
+    const u = LS.get("uhr", null);
+    if (u && u.e) { klasseUhrSetzen(u.e, u.d); }
+    else { klasse.ende = 0; klasse.dauer = 0; klasse.gezeigt = {}; klasseUhrZeichnen(); }
+  });
 
   /* Start */
   timerAufSchritt(true);
