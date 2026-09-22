@@ -1,0 +1,17 @@
+.DS_Store
+
+# Diese Dateien bleiben bewusst lokal. Das Repository ist öffentlich, und
+# GitHub Pages liefert jede Datei im Hauptordner aus — auch alte Fassungen.
+# Soll eine davon doch mit: hier die Zeile löschen und neu committen.
+
+# Ausgangsfassung vor der Überarbeitung
+index.vorher-antigravity.html
+
+# gehört zum Projekt ClassScreen
+DesignBeispiel.html
+
+# Ausschreibung für einen anderen Anlass
+Ausschreibung_Workshop.md
+
+# ursprünglicher Auftrag, inzwischen überholt
+vibecoding-hackathon-seite-spec.md

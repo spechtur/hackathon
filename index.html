@@ -1,0 +1,2439 @@
+<!DOCTYPE html>
+<html lang="de" data-glass="light" data-contrast="normal" data-view="lp">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VibeCoding — Hackathon</title>
+<meta name="description" content="Schritt-für-Schritt-Begleitung für einen Hackathon im Klassenzimmer: Lehrpersonen-Ansicht mit Werkzeugen, Schüler-Ansicht mit dem aktuellen Schritt.">
+<meta name="theme-color" content="#eef0f3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+/* ===========================================================================
+   DESIGN-SYSTEM  —  uebernommen aus ClassScreen, damit beide Werkzeuge
+   wie eine Familie aussehen. Farben, Radien, Schatten leben nur hier.
+   =========================================================================== */
+:root{
+  --accent-300:#fcd34d; --accent-500:#f59e0b; --accent-600:#d97706;
+  --accent-700:#b45309;  --accent-rgb:245,158,11;
+
+  --blue-600:#2563eb; --blue-rgb:59,130,246;
+  --teal-600:#0d9488; --teal-rgb:20,184,166;
+  --violet-600:#7c3aed; --violet-rgb:139,92,246;
+  --rose-600:#e11d48; --rose-rgb:244,63,94;
+
+  --glass-bg: rgba(255,255,255,0.55);
+  --glass-bg-strong: rgba(255,255,255,0.72);
+  --glass-bg-solid: rgba(255,255,255,0.90);
+  --glass-border: rgba(255,255,255,0.60);
+  --glass-blur: 24px; --glass-sat: 180%;
+  --glass-shadow: 0 8px 32px rgba(31,38,135,0.10);
+  --glass-inset: inset 0 1px 0 rgba(255,255,255,0.55);
+
+  --ink:#1d1d1f; --ink-soft:#48484a; --ink-faint:#86868b;
+  --hairline: rgba(0,0,0,0.08); --hairline-strong: rgba(0,0,0,0.14);
+  --fill-soft: rgba(0,0,0,0.05); --fill-mid: rgba(0,0,0,0.09);
+
+  --r-lg:24px; --r-md:16px; --r-sm:12px; --r-pill:999px;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --t-fast:.12s; --t-mid:.22s; --t-slow:.35s;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+
+  --page-1:#eef0f3; --page-2:#e7eaf0;
+  --blob-a: rgba(var(--accent-rgb),.30);
+  --blob-b: rgba(var(--blue-rgb),.22);
+  --blob-c: rgba(var(--teal-rgb),.20);
+}
+
+[data-glass="dark"]{
+  --glass-bg: rgba(28,28,30,0.52);
+  --glass-bg-strong: rgba(28,28,30,0.68);
+  --glass-bg-solid: rgba(24,24,26,0.90);
+  --glass-border: rgba(255,255,255,0.16);
+  --glass-shadow: 0 10px 40px rgba(0,0,0,0.35);
+  --glass-inset: inset 0 1px 0 rgba(255,255,255,0.12);
+  --ink:#f5f5f7; --ink-soft:#d1d1d6; --ink-faint:#98989d;
+  --hairline: rgba(255,255,255,0.12); --hairline-strong: rgba(255,255,255,0.22);
+  --fill-soft: rgba(255,255,255,0.08); --fill-mid: rgba(255,255,255,0.14);
+  --page-1:#14141a; --page-2:#0d0d12;
+  --blob-a: rgba(var(--accent-rgb),.22);
+  --blob-b: rgba(var(--blue-rgb),.20);
+  --blob-c: rgba(var(--violet-rgb),.18);
+}
+
+/* Beamer-Modus: gleiche Formensprache, mehr Deckkraft */
+[data-contrast="boost"]{
+  --glass-bg: rgba(255,255,255,0.90);
+  --glass-bg-strong: rgba(255,255,255,0.95);
+  --glass-border: rgba(255,255,255,0.9);
+  --ink:#000; --ink-soft:#33333a; --hairline: rgba(0,0,0,0.16);
+  --glass-blur: 12px;
+}
+[data-glass="dark"][data-contrast="boost"]{
+  --glass-bg: rgba(18,18,20,0.92);
+  --glass-bg-strong: rgba(18,18,20,0.96);
+  --glass-border: rgba(255,255,255,0.28);
+  --ink:#fff; --ink-soft:#e5e5ea; --hairline: rgba(255,255,255,0.24);
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html,body{ height:100%; }
+body{
+  margin:0; font-family:var(--font); color:var(--ink);
+  background:var(--page-1);
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+
+/* --- Hintergrund: gibt dem Milchglas etwas zum Durchscheinen ------------- */
+#bg{ position:fixed; inset:0; z-index:0; overflow:hidden;
+     background:linear-gradient(160deg,var(--page-1),var(--page-2)); }
+#bg i{ position:absolute; display:block; border-radius:50%; filter:blur(70px); }
+#bg i:nth-child(1){ width:46vw; height:46vw; left:-8vw;  top:-12vw;  background:var(--blob-a); }
+#bg i:nth-child(2){ width:40vw; height:40vw; right:-6vw; top:18vh;   background:var(--blob-b); }
+#bg i:nth-child(3){ width:34vw; height:34vw; left:24vw;  bottom:-14vw;background:var(--blob-c); }
+
+.glass{
+  background:var(--glass-bg); border:1px solid var(--glass-border);
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow:var(--glass-shadow),var(--glass-inset);
+  border-radius:var(--r-lg);
+}
+.glass-strong{ background:var(--glass-bg-strong); }
+
+/* --- Schaltflaechen ------------------------------------------------------ */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  padding:9px 15px; border-radius:var(--r-pill);
+  font-family:var(--font); font-size:.85rem; font-weight:600;
+  color:var(--ink-soft); border:1px solid var(--hairline);
+  background:var(--fill-soft); cursor:pointer; text-decoration:none;
+  -webkit-user-select:none; user-select:none;
+  transition:transform var(--t-fast) var(--ease),background var(--t-mid),
+             border-color var(--t-mid),color var(--t-mid);
+}
+.btn:hover{ background:var(--fill-mid); border-color:var(--hairline-strong); color:var(--ink); }
+.btn:active{ transform:scale(.95); }
+.btn:focus-visible{ outline:none; box-shadow:0 0 0 4px rgba(var(--accent-rgb),.28); }
+.btn:disabled{ opacity:.35; cursor:not-allowed; }
+.btn:disabled:hover{ background:var(--fill-soft); border-color:var(--hairline); }
+.btn-accent{ color:var(--accent-700); background:rgba(var(--accent-rgb),.14); border-color:rgba(var(--accent-rgb),.30); }
+.btn-accent:hover{ background:rgba(var(--accent-rgb),.22); border-color:rgba(var(--accent-rgb),.5); color:var(--accent-700); }
+[data-glass="dark"] .btn-accent{ color:var(--accent-300); }
+.btn-solid{ color:#fff; background:linear-gradient(180deg,var(--accent-500),var(--accent-600));
+            border-color:rgba(0,0,0,.06); box-shadow:0 4px 14px rgba(var(--accent-rgb),.35); }
+.btn-solid:hover{ color:#fff; background:linear-gradient(180deg,var(--accent-500),var(--accent-700)); }
+.btn-ghost{ background:transparent; border-color:transparent; }
+.btn-ghost:hover{ background:var(--fill-soft); border-color:var(--hairline); }
+.btn-icon{ padding:0; width:34px; height:34px; border-radius:50%; }
+.btn-sm{ padding:6px 11px; font-size:.78rem; }
+.btn-lg{ padding:12px 22px; font-size:.95rem; }
+.btn[aria-pressed="true"],.btn.is-on{
+  background:rgba(var(--accent-rgb),.18); border-color:rgba(var(--accent-rgb),.45); color:var(--accent-700); }
+[data-glass="dark"] .btn[aria-pressed="true"],[data-glass="dark"] .btn.is-on{ color:var(--accent-300); }
+
+.segment{ display:inline-flex; padding:3px; gap:3px; background:var(--fill-soft);
+          border:1px solid var(--hairline); border-radius:var(--r-pill); }
+.segment .btn{ border:none; background:transparent; box-shadow:none; }
+.segment .btn.is-on{ background:var(--glass-bg-solid); box-shadow:0 1px 4px rgba(0,0,0,.10); color:var(--ink); }
+
+/* --- Formular ------------------------------------------------------------ */
+.lbl{ display:block; font-size:.7rem; font-weight:700; letter-spacing:.05em;
+      text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px; }
+input[type="text"],input[type="number"],select,textarea{
+  width:100%; font-family:var(--font); font-size:.92rem; color:var(--ink);
+  background:var(--glass-bg-strong); border:1px solid var(--hairline);
+  border-radius:var(--r-sm); padding:9px 12px; appearance:none; -webkit-appearance:none;
+  transition:border-color var(--t-mid),box-shadow var(--t-mid); }
+select{ padding-right:32px; cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2386868b'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; }
+input:focus,select:focus,textarea:focus{ outline:none; border-color:var(--accent-500);
+  box-shadow:0 0 0 4px rgba(var(--accent-rgb),.16); }
+textarea{ resize:vertical; line-height:1.5; }
+
+/* --- Kleinteile ---------------------------------------------------------- */
+.chip{ display:inline-flex; align-items:center; gap:5px; font-size:.7rem; font-weight:700;
+       padding:4px 10px; border-radius:var(--r-pill);
+       background:rgba(var(--accent-rgb),.14); color:var(--accent-700); white-space:nowrap; }
+[data-glass="dark"] .chip{ color:var(--accent-300); background:rgba(var(--accent-rgb),.2); }
+.chip-blue{ background:rgba(var(--blue-rgb),.16); color:var(--blue-600); }
+.chip-teal{ background:rgba(var(--teal-rgb),.16); color:var(--teal-600); }
+.chip-rose{ background:rgba(var(--rose-rgb),.16); color:var(--rose-600); }
+[data-glass="dark"] .chip-blue{ color:#93c5fd; } [data-glass="dark"] .chip-teal{ color:#5eead4; }
+[data-glass="dark"] .chip-rose{ color:#fda4af; }
+.hint{ font-size:.78rem; color:var(--ink-faint); line-height:1.45; }
+.divider{ height:1px; background:var(--hairline); margin:14px 0; border:0; }
+.num{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+.kbd{ display:inline-block; padding:1px 6px; border-radius:6px; font-size:.72rem; font-weight:700;
+      background:var(--fill-mid); border:1px solid var(--hairline); font-family:var(--font); }
+
+@keyframes cs-pop{ from{opacity:0; transform:scale(.97) translateY(10px);} to{opacity:1; transform:none;} }
+.cs-pop{ animation:cs-pop var(--t-slow) var(--ease); }
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+
+/* ===========================================================================
+   LEHRPERSONEN-ANSICHT  (data-view="lp")
+   =========================================================================== */
+#app{ position:relative; z-index:1; height:100%; display:flex; flex-direction:column;
+      padding:10px; gap:10px; }
+[data-view="sus"] #app{ display:none; }
+[data-view="lp"] #sus{ display:none; }
+
+#topbar{ display:flex; align-items:center; gap:12px; padding:9px 14px; flex:0 0 auto; }
+.brand{ display:flex; align-items:center; gap:10px; min-width:0; }
+.brand-mark{ width:32px; height:32px; border-radius:10px; flex:0 0 auto;
+  background:linear-gradient(140deg,var(--accent-500),var(--accent-700));
+  box-shadow:0 3px 10px rgba(var(--accent-rgb),.4);
+  display:grid; place-items:center; color:#fff; font-size:1rem; }
+.brand-txt strong{ display:block; font-size:.95rem; letter-spacing:-.01em; line-height:1.2; }
+.brand-txt span{ display:block; font-size:.72rem; color:var(--ink-faint); }
+.spacer{ flex:1 1 auto; }
+.bar-tools{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+
+/* --- Schrittleiste -------------------------------------------------------- */
+#rail{ display:flex; gap:6px; padding:7px 10px; overflow-x:auto; flex:0 0 auto;
+       scrollbar-width:thin; scroll-behavior:smooth; }
+.rail-step{ display:flex; align-items:center; gap:7px; padding:6px 12px;
+  border-radius:var(--r-pill); border:1px solid transparent; background:transparent;
+  color:var(--ink-faint); font-size:.8rem; font-weight:600; white-space:nowrap;
+  cursor:pointer; font-family:var(--font);
+  transition:background var(--t-mid),color var(--t-mid),border-color var(--t-mid); }
+.rail-step:hover{ background:var(--fill-soft); color:var(--ink); }
+.rail-num{ width:20px; height:20px; border-radius:50%; display:grid; place-items:center;
+  font-size:.7rem; font-weight:800; background:var(--fill-mid); color:var(--ink-soft); flex:0 0 auto; }
+.rail-step.done{ color:var(--ink-soft); }
+.rail-step.done .rail-num{ background:rgba(var(--teal-rgb),.22); color:var(--teal-600); }
+.rail-step.now{ background:rgba(var(--accent-rgb),.16); border-color:rgba(var(--accent-rgb),.38);
+                color:var(--accent-700); }
+.rail-step.now .rail-num{ background:var(--accent-500); color:#fff; }
+[data-glass="dark"] .rail-step.now{ color:var(--accent-300); }
+[data-glass="dark"] .rail-step.done .rail-num{ color:#5eead4; }
+
+/* --- Mittelteil ----------------------------------------------------------- */
+#mid{ flex:1 1 auto; display:flex; gap:10px; min-height:0; }
+#stage{ flex:1 1 auto; overflow-y:auto; padding:26px clamp(18px,3vw,40px) 26px; min-width:0; }
+#stage > *:last-child{ margin-bottom:0; }
+
+.step-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+.step-title{ font-size:clamp(1.7rem,3.4vw,2.6rem); font-weight:800; letter-spacing:-.025em;
+             margin:0 0 14px; line-height:1.1; }
+.goal{ display:flex; gap:13px; padding:16px 18px; border-radius:var(--r-md);
+  background:rgba(var(--accent-rgb),.11); border:1px solid rgba(var(--accent-rgb),.26);
+  font-size:clamp(1rem,1.5vw,1.2rem); font-weight:600; line-height:1.45; margin-bottom:20px; }
+.goal svg{ flex:0 0 auto; margin-top:2px; color:var(--accent-600); }
+
+/* --- Einstieg: was machst du, was lernst du, was habt ihr am Ende ------- */
+.intro{ border-radius:var(--r-md); border:1px solid rgba(var(--accent-rgb),.26);
+  background:rgba(var(--accent-rgb),.10); padding:6px 4px; margin-bottom:22px; }
+.intro-row{ display:flex; gap:13px; padding:11px 15px; align-items:flex-start; }
+.intro-row + .intro-row{ border-top:1px solid rgba(var(--accent-rgb),.18); }
+.intro-ic{ width:26px; height:26px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center;
+  font-size:.82rem; font-weight:800; background:rgba(var(--accent-rgb),.22); color:var(--accent-700);
+  margin-top:1px; }
+[data-glass="dark"] .intro-ic{ color:var(--accent-300); }
+.intro-row b{ display:block; font-size:.68rem; font-weight:800; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--accent-700); margin-bottom:3px; }
+[data-glass="dark"] .intro-row b{ color:var(--accent-300); }
+.intro-row p{ margin:0; font-size:clamp(.97rem,1.35vw,1.1rem); font-weight:600; line-height:1.45; }
+#sus .intro-row p{ font-size:clamp(.98rem,3.4vw,1.1rem); }
+
+.cols{ display:grid; gap:14px; grid-template-columns:1fr; }
+@media (min-width:1080px){ .cols{ grid-template-columns:1.45fr 1fr; align-items:start; } }
+
+.card{ padding:18px 20px; }
+.card-h{ display:flex; align-items:center; gap:8px; font-size:.72rem; font-weight:800;
+  letter-spacing:.07em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:14px; }
+
+ol.steps{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:15px; }
+ol.steps li{ display:flex; gap:13px; }
+.s-num{ width:26px; height:26px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center;
+  font-size:.78rem; font-weight:800; background:var(--fill-mid); color:var(--ink-soft); margin-top:1px; }
+.s-body strong{ display:block; font-size:clamp(.98rem,1.25vw,1.1rem); margin-bottom:3px; line-height:1.3; }
+.s-body span{ display:block; font-size:clamp(.88rem,1.05vw,.98rem); color:var(--ink-soft); line-height:1.55; }
+.s-body code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88em;
+  background:var(--fill-mid); padding:1px 5px; border-radius:5px; }
+
+.tip{ padding:14px 16px; border-radius:var(--r-md); background:var(--fill-soft);
+      border:1px solid var(--hairline); font-size:.92rem; line-height:1.55; }
+#sus .tip{ margin-top:22px; font-size:clamp(.9rem,3.1vw,.97rem); }
+.tip b{ color:var(--ink); }
+
+/* --- Sicherheits-Check ---------------------------------------------------- */
+.safety{ margin-top:16px; padding:16px 18px; border-radius:var(--r-md);
+  background:rgba(var(--rose-rgb),.09); border:1px solid rgba(var(--rose-rgb),.3); }
+.safety-h{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:.95rem;
+  color:var(--rose-600); margin-bottom:9px; }
+[data-glass="dark"] .safety-h{ color:#fda4af; }
+.safety ul{ margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px;
+  font-size:.92rem; line-height:1.5; color:var(--ink-soft); }
+.safety .ask{ margin-top:11px; padding:10px 13px; border-radius:var(--r-sm); font-weight:700;
+  font-size:.92rem; background:rgba(var(--rose-rgb),.14); color:var(--ink); line-height:1.45; }
+
+/* --- Moderationshinweise (nur LP) ----------------------------------------- */
+.lp-note{ margin-top:14px; padding:15px 17px; border-radius:var(--r-md);
+  background:rgba(var(--violet-rgb),.09); border:1px dashed rgba(var(--violet-rgb),.42); }
+.lp-note-h{ display:flex; align-items:center; gap:8px; font-size:.7rem; font-weight:800;
+  letter-spacing:.06em; text-transform:uppercase; color:var(--violet-600); margin-bottom:10px; }
+[data-glass="dark"] .lp-note-h{ color:#c4b5fd; }
+.lp-note ul{ margin:0; padding-left:19px; display:flex; flex-direction:column; gap:7px;
+  font-size:.88rem; line-height:1.55; color:var(--ink-soft); }
+
+/* --- Werkzeugkasten ------------------------------------------------------- */
+#dock{ width:400px; flex:0 0 auto; display:flex; flex-direction:column; overflow:hidden;
+       transition:margin-right var(--t-slow) var(--ease),opacity var(--t-mid); }
+#dock.hidden{ margin-right:calc(-400px - 10px); opacity:0; pointer-events:none; }
+.dock-h{ display:flex; align-items:center; gap:8px; padding:12px 14px;
+         border-bottom:1px solid var(--hairline); flex:0 0 auto; }
+.dock-tabs{ display:flex; gap:3px; padding:7px 8px; border-bottom:1px solid var(--hairline);
+            overflow-x:auto; flex:0 0 auto; }
+.dock-tabs .btn{ flex:1 1 auto; flex-direction:column; gap:3px; padding:7px 6px; font-size:.68rem;
+                 border-radius:var(--r-sm); }
+.dock-body{ flex:1 1 auto; overflow-y:auto; padding:14px; }
+.pane{ display:none; flex-direction:column; gap:13px; }
+.pane.on{ display:flex; }
+
+/* Timer */
+.timer-box{ text-align:center; padding:18px 14px; border-radius:var(--r-md);
+  background:var(--fill-soft); border:1px solid var(--hairline);
+  transition:background var(--t-mid),border-color var(--t-mid); }
+.timer-lbl{ font-size:.68rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
+            color:var(--ink-faint); margin-bottom:5px; }
+.timer-val{ font-size:3.4rem; font-weight:700; letter-spacing:-.03em; line-height:1;
+            font-variant-numeric:tabular-nums; margin-bottom:14px; }
+.timer-box.warn{ background:rgba(var(--accent-rgb),.14); border-color:rgba(var(--accent-rgb),.4); }
+.timer-box.warn .timer-val{ color:var(--accent-600); }
+.timer-box.over{ background:rgba(var(--rose-rgb),.14); border-color:rgba(var(--rose-rgb),.45); }
+.timer-box.over .timer-val{ color:var(--rose-600); animation:blink 1.1s var(--ease) infinite; }
+@keyframes blink{ 50%{ opacity:.35; } }
+.row{ display:flex; gap:6px; } .row>*{ flex:1 1 0; }
+
+/* Teams */
+.team{ padding:11px 13px; border-radius:var(--r-sm); background:var(--fill-soft);
+       border:1px solid var(--hairline); }
+.team-h{ font-weight:800; font-size:.85rem; margin-bottom:7px; color:var(--accent-700);
+         display:flex; justify-content:space-between; }
+[data-glass="dark"] .team-h{ color:var(--accent-300); }
+.team-m{ display:flex; justify-content:space-between; align-items:center; gap:8px;
+         padding:3px 0; font-size:.85rem; }
+.team-m span:last-child{ font-size:.67rem; color:var(--ink-faint); text-align:right; }
+
+/* Tools */
+.tool{ padding:13px; border-radius:var(--r-sm); background:var(--fill-soft); border:1px solid var(--hairline); }
+.tool-h{ display:flex; align-items:center; gap:7px; margin-bottom:5px; flex-wrap:wrap; }
+.tool-h b{ font-size:.92rem; }
+.tool p{ margin:0 0 9px; font-size:.8rem; color:var(--ink-soft); line-height:1.45; }
+
+/* Feedback */
+.q{ padding:12px 13px; border-radius:var(--r-sm); background:var(--fill-soft); border:1px solid var(--hairline); }
+.q p{ margin:0 0 8px; font-size:.87rem; line-height:1.45; font-weight:600; }
+.q label{ display:flex; align-items:center; gap:7px; font-size:.76rem; color:var(--ink-faint); cursor:pointer; }
+.q input{ width:auto; }
+
+/* --- Fussleiste ----------------------------------------------------------- */
+#foot{ display:flex; align-items:center; gap:12px; padding:8px 14px; flex:0 0 auto; }
+.foot-hint{ flex:1 1 auto; text-align:center; font-size:.72rem; color:var(--ink-faint);
+            display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+
+/* --- Modale --------------------------------------------------------------- */
+.sheet{ position:fixed; inset:0; z-index:50; display:none; place-items:center; padding:20px;
+        background:rgba(0,0,0,.42); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+.sheet.on{ display:grid; }
+.sheet-card{ max-width:min(94vw,860px); max-height:88vh; overflow-y:auto; padding:26px;
+             position:relative; background:var(--glass-bg-solid); }
+.sheet-x{ position:absolute; top:14px; right:14px; }
+.qr-wrap{ display:grid; place-items:center; padding:18px; background:#fff;
+          border-radius:var(--r-md); margin:16px 0 12px; }
+.qr-url{ font-family:ui-monospace,monospace; font-size:.8rem; color:var(--ink-faint);
+         word-break:break-all; text-align:center; }
+.big-teams{ display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); margin-top:18px; }
+.big-teams .team{ padding:18px; } .big-teams .team-h{ font-size:1.15rem; }
+.big-teams .team-m{ font-size:1.02rem; padding:5px 0; }
+
+@media (max-width:1000px){
+  #dock{ position:fixed; top:10px; right:10px; bottom:10px; width:min(400px,calc(100vw - 20px)); z-index:40; }
+  #dock.hidden{ margin-right:0; transform:translateX(calc(100% + 20px)); }
+}
+
+/* ===========================================================================
+   SCHUELER-ANSICHT  (data-view="sus")  —  nur der aktuelle Schritt,
+   gross, antippbar, ohne Bedienelemente der Lehrperson.
+   =========================================================================== */
+#sus{ position:relative; z-index:1; height:100%; display:flex; flex-direction:column;
+      padding:10px; gap:10px; }
+#sus-top{ display:flex; align-items:center; gap:10px; padding:10px 14px; flex:0 0 auto; }
+#sus-top .brand-txt strong{ font-size:.9rem; }
+/* align-items:flex-start ist wichtig: sonst dehnt der Flex-Container die Karte
+   auf seine eigene Höhe, und längerer Inhalt läuft unten aus dem Glas heraus. */
+#sus-body{ flex:1 1 auto; overflow-y:auto; display:flex; justify-content:center;
+           align-items:flex-start; padding:4px; }
+#sus-inner{ width:100%; max-width:720px; padding:30px clamp(20px,4vw,34px) 30px;
+            margin-bottom:4px; }
+#sus-inner > *:last-child{ margin-bottom:0; }
+#sus .step-title{ font-size:clamp(1.55rem,6vw,2.3rem); }
+#sus .goal{ font-size:clamp(1rem,3.4vw,1.15rem); }
+#sus ol.steps li{ gap:14px; }
+#sus .s-body strong{ font-size:clamp(1rem,3.6vw,1.12rem); }
+#sus .s-body span{ font-size:clamp(.92rem,3.2vw,1rem); }
+
+/* --- Timer-Balken in der Schueler-Ansicht ------------------------------- */
+#sus-clock{ flex:0 0 auto; padding:11px 16px 13px; }
+.clock-top{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:8px; }
+#clock-lbl{ font-size:.7rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+            color:var(--ink-faint); }
+#clock-val{ font-size:1.25rem; font-weight:700; letter-spacing:-.02em; }
+.clock-track{ height:8px; border-radius:var(--r-pill); background:var(--fill-mid); overflow:hidden; }
+.clock-fill{ height:100%; border-radius:var(--r-pill); width:100%;
+  background:linear-gradient(90deg,var(--accent-500),var(--accent-600));
+  transition:width 1s linear, background var(--t-slow); }
+#sus-clock.half .clock-fill{ background:linear-gradient(90deg,var(--accent-500),var(--accent-700)); }
+#sus-clock.last .clock-fill{ background:linear-gradient(90deg,#fb7185,var(--rose-600)); }
+#sus-clock.last #clock-val{ color:var(--rose-600); }
+#sus-clock.over .clock-fill{ width:100% !important; background:var(--rose-600); }
+#sus-clock.over #clock-val{ color:var(--rose-600); }
+[data-glass="dark"] #sus-clock.last #clock-val,
+[data-glass="dark"] #sus-clock.over #clock-val{ color:#fda4af; }
+
+/* --- Einblendung bei Halbzeit und kurz vor Schluss ---------------------- */
+#sus-toast{ position:fixed; left:50%; bottom:86px; transform:translateX(-50%);
+  z-index:60; display:flex; align-items:center; gap:11px; padding:14px 20px;
+  background:var(--glass-bg-solid); max-width:min(92vw,440px);
+  font-size:.98rem; font-weight:600; line-height:1.4;
+  animation:cs-pop var(--t-slow) var(--ease); }
+#sus-toast[hidden]{ display:none; }
+#toast-ic{ font-size:1.4rem; flex:0 0 auto; }
+
+/* --- Werkzeug-Zeilen im Einstell-Bereich -------------------------------- */
+.e-tool{ padding:10px; border-radius:var(--r-sm); background:var(--fill-soft);
+         border:1px solid var(--hairline); display:flex; flex-direction:column; gap:6px; }
+.e-tool input, .e-tool select{ font-size:.82rem; padding:6px 9px; }
+.e-tool .e-head{ display:flex; gap:6px; align-items:center; }
+.e-tool .e-head input{ flex:1 1 auto; font-weight:700; }
+
+.sus-links{ display:flex; flex-direction:column; gap:9px; margin-top:6px; }
+.sus-link{ display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:var(--r-md);
+  background:var(--glass-bg-strong); border:1px solid var(--hairline); text-decoration:none;
+  color:var(--ink); transition:transform var(--t-fast) var(--ease),border-color var(--t-mid); }
+.sus-link:hover{ border-color:rgba(var(--accent-rgb),.5); }
+.sus-link:active{ transform:scale(.98); }
+.sus-link b{ display:block; font-size:1rem; }
+.sus-link small{ display:block; font-size:.78rem; color:var(--ink-faint); margin-top:2px; }
+.sus-link .go{ margin-left:auto; color:var(--accent-600); font-size:1.2rem; flex:0 0 auto; }
+
+#sus-foot{ display:flex; align-items:center; gap:10px; padding:9px 12px; flex:0 0 auto; }
+#sus-jump{ flex:1 1 auto; display:flex; gap:5px; justify-content:center; flex-wrap:wrap; }
+.jump{ width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+  font-size:.8rem; font-weight:800; cursor:pointer; font-family:var(--font);
+  background:var(--fill-soft); border:1px solid var(--hairline); color:var(--ink-faint);
+  transition:background var(--t-mid),color var(--t-mid); }
+.jump:hover{ background:var(--fill-mid); color:var(--ink); }
+.jump.now{ background:var(--accent-500); border-color:var(--accent-600); color:#fff; }
+.read-only{ display:inline-flex; align-items:center; gap:5px; font-size:.68rem; font-weight:700;
+  letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint); }
+
+/* ===========================================================================
+   DRUCK  —  nur das Handout, nichts von der Oberflaeche
+   =========================================================================== */
+#handout{ display:none; }
+@media print{
+  @page{ margin:16mm 14mm; }
+  html,body{ height:auto; overflow:visible; background:#fff; color:#000; }
+  #bg,#app,#sus,.sheet{ display:none !important; }
+  #handout{ display:block !important; font-size:10.5pt; line-height:1.45; color:#000; }
+  #handout h1{ font-size:19pt; margin:0 0 3pt; }
+  #handout .sub{ font-size:10pt; color:#555; margin:0 0 14pt; }
+  #handout h2{ font-size:12.5pt; margin:17pt 0 7pt; padding-bottom:3pt; border-bottom:1px solid #bbb; }
+  #handout .ho-step{ page-break-inside:avoid; margin-bottom:11pt; }
+  #handout .ho-step h3{ font-size:11pt; margin:0 0 3pt; }
+  #handout .ho-step p{ margin:0 0 4pt; }
+  #handout .ho-meta{ font-size:9.5pt; line-height:1.5; background:#f6f6f6;
+                     padding:5pt 7pt; border-radius:3pt; margin-bottom:5pt; }
+  #handout ul{ margin:3pt 0 0; padding-left:15pt; }
+  #handout li{ margin-bottom:2.5pt; }
+  #handout .ho-safe{ border-left:3px solid #999; padding-left:8pt; margin-top:5pt; }
+  #handout table{ width:100%; border-collapse:collapse; font-size:9.5pt; }
+  #handout th,#handout td{ border:1px solid #bbb; padding:4pt 6pt; text-align:left; vertical-align:top; }
+  #handout th{ background:#f0f0f0; }
+}
+</style>
+</head>
+<body>
+
+<div id="bg" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<!-- ==========================================================================
+     LEHRPERSONEN-ANSICHT
+     ========================================================================== -->
+<div id="app">
+
+  <header id="topbar" class="glass">
+    <div class="brand">
+      <div class="brand-mark">⚡</div>
+      <div class="brand-txt">
+        <strong id="brand-title">VibeCoding</strong>
+        <span id="brand-sub">Hackathon</span>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="bar-tools">
+      <button class="btn btn-sm" id="b-sus" title="Schüler-Ansicht in neuem Tab öffnen">📱 Schüler-Ansicht</button>
+      <button class="btn btn-icon" id="b-contrast" title="Beamer-Kontrast verstärken" aria-pressed="false">◐</button>
+      <button class="btn btn-icon" id="b-glass" title="Hell / Dunkel">☾</button>
+      <button class="btn btn-icon" id="b-sound" title="Ton bei Timer-Ende" aria-pressed="false">🔕</button>
+      <button class="btn btn-icon" id="b-print" title="Handout drucken">🖨</button>
+      <button class="btn btn-icon" id="b-full" title="Vollbild (F)">⛶</button>
+      <button class="btn btn-accent btn-sm" id="b-dock" title="Werkzeuge (W)">🧰 Werkzeuge</button>
+    </div>
+  </header>
+
+  <nav id="rail" class="glass" aria-label="Schritte"></nav>
+
+  <div id="mid">
+    <main id="stage" class="glass" tabindex="-1"></main>
+
+    <aside id="dock" class="glass">
+      <div class="dock-h">
+        <strong style="font-size:.95rem;">🧰 Werkzeuge</strong>
+        <div class="spacer"></div>
+        <button class="btn btn-icon btn-ghost" id="b-dock-x" title="Schliessen">✕</button>
+      </div>
+
+      <div class="dock-tabs" role="tablist">
+        <button class="btn is-on" data-pane="timer" role="tab"><span>⏱</span><span>Timer</span></button>
+        <button class="btn" data-pane="teams" role="tab"><span>👥</span><span>Teams</span></button>
+        <button class="btn" data-pane="tools" role="tab"><span>🛠</span><span>Tools</span></button>
+        <button class="btn" data-pane="feedback" role="tab"><span>💬</span><span>Feedback</span></button>
+        <button class="btn" data-pane="share" role="tab"><span>📱</span><span>Teilen</span></button>
+        <button class="btn" data-pane="einstellen" role="tab"><span>⚙️</span><span>Einstellen</span></button>
+        <button class="btn" data-pane="notes" role="tab"><span>📝</span><span>Notizen</span></button>
+      </div>
+
+      <div class="dock-body">
+
+        <!-- Timer -->
+        <div class="pane on" id="p-timer">
+          <div class="timer-box" id="timer-box">
+            <div class="timer-lbl" id="timer-lbl">Bereit</div>
+            <div class="timer-val num" id="timer-val">15:00</div>
+            <div class="row">
+              <button class="btn btn-solid" id="t-go">▶ Start</button>
+              <button class="btn" id="t-reset">↺ Zurück</button>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn btn-sm" id="t-m1">−1</button>
+            <button class="btn btn-sm" id="t-p1">+1</button>
+            <button class="btn btn-sm" id="t-p5">+5</button>
+            <button class="btn btn-sm" id="t-preset" title="Vorschlagswert dieses Schritts">⟲ Schritt</button>
+          </div>
+          <div class="divider"></div>
+          <div>
+            <span class="lbl">Runden-Timer für Vorführungen</span>
+            <div class="row" style="margin-bottom:7px;">
+              <button class="btn btn-sm" id="r-pitch">Zeigen 3′</button>
+              <button class="btn btn-sm" id="r-fb">Feedback 4′</button>
+            </div>
+            <div class="row">
+              <button class="btn btn-sm" id="r-next">Nächstes Team ⏭</button>
+              <button class="btn btn-sm" id="r-reset">Zurück auf 1</button>
+            </div>
+            <p class="hint" style="margin:8px 0 0; text-align:center;">Aktuell: <b id="r-team">Team 1</b></p>
+          </div>
+          <p class="hint" style="text-align:center;"><span class="kbd">T</span> Start/Pause · Ton: <b id="sound-txt">aus</b></p>
+        </div>
+
+        <!-- Teams -->
+        <div class="pane" id="p-teams">
+          <div>
+            <span class="lbl">Namen (pro Zeile oder mit Komma)</span>
+            <textarea id="names" rows="6" placeholder="Alina&#10;Ben&#10;Chiara&#10;Dario&#10;Elif&#10;Finn"></textarea>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <select id="gmode" style="flex:1 1 auto;">
+              <option value="teams">Anzahl Teams</option>
+              <option value="size">Personen pro Team</option>
+            </select>
+            <input type="number" id="gnum" value="3" min="1" max="20" style="width:70px;">
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:.85rem; cursor:pointer;">
+            <input type="checkbox" id="groles" checked style="width:auto;"> Rollen mitverteilen
+          </label>
+          <div class="row">
+            <button class="btn btn-solid" id="g-go">🎲 Auslosen</button>
+            <button class="btn" id="g-big" title="Gross anzeigen">⛶</button>
+          </div>
+          <div id="teams-out" style="display:flex; flex-direction:column; gap:9px;"></div>
+        </div>
+
+        <!-- Tools -->
+        <div class="pane" id="p-tools">
+          <p class="hint" id="tools-why"></p>
+          <div id="tools-out" style="display:flex; flex-direction:column; gap:10px;"></div>
+        </div>
+
+        <!-- Feedback -->
+        <div class="pane" id="p-feedback">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="lbl" style="margin:0;">Leitfragen</span>
+            <div class="spacer"></div>
+            <span class="chip" id="fb-badge">Zwischenrunde</span>
+          </div>
+          <div id="fb-out" style="display:flex; flex-direction:column; gap:9px;"></div>
+          <div class="tip" style="font-size:.84rem;">
+            <b>Feedback-Regel:</b> eine Sache, die schon gut ist · eine Idee für den nächsten Schritt · eine ehrliche Frage.
+          </div>
+        </div>
+
+        <!-- Teilen -->
+        <div class="pane" id="p-share">
+          <p class="hint">Diesen Code auf den Beamer. Die Klasse scannt ihn und bekommt damit drei
+             Dinge auf einmal: den <b>aktuellen Schritt</b>, den <b>laufenden Countdown</b> und die
+             <b>Werkzeuge</b>, die du eingestellt hast. Wer die Seite schon offen hat, tippt einfach
+             unten auf die Schrittnummer.</p>
+          <p class="hint">Den Countdown enthält der Code nur, solange der Timer <b>läuft</b>.
+             Starte ihn also, bevor du scannen lässt — dann läuft der Balken auf allen Geräten
+             sekundengenau gleich.</p>
+          <div class="qr-wrap" id="share-qr"></div>
+          <div class="qr-url" id="share-url"></div>
+          <div class="tip" id="share-warn" hidden
+               style="font-size:.8rem; background:rgba(var(--accent-rgb),.12);
+                      border-color:rgba(var(--accent-rgb),.35);"></div>
+          <div>
+            <span class="lbl">Adresse der Seite</span>
+            <input type="text" id="base-url" placeholder="https://benutzer.github.io/hackathon/">
+            <p class="hint" style="margin-top:6px;">Füllt sich selbst aus, sobald die Seite über
+               eine echte Adresse läuft. Solange die Datei nur auf deinem Gerät liegt
+               (<code>file://…</code>), bleibt das Feld leer und der Code funktioniert nicht —
+               die Klasse käme nicht an deinen Laptop heran.</p>
+          </div>
+          <button class="btn" id="share-big">⛶ Gross auf den Beamer</button>
+        </div>
+
+        <!-- Einstellen -->
+        <div class="pane" id="p-einstellen">
+          <p class="hint">Alles hier gilt sofort — und wird über den QR-Code auch an die Klasse
+             weitergegeben. Dauerhaft speichern lässt es sich mit dem Knopf ganz unten.</p>
+
+          <div>
+            <span class="lbl">Veröffentlichungsweg</span>
+            <select id="e-weg">
+              <option value="klassenkonto">Klassen-Konto auf GitHub</option>
+              <option value="toolLink">Link des eigenen Werkzeugs</option>
+              <option value="schulcloud">Schul-Cloud</option>
+              <option value="aus">Nicht veröffentlichen</option>
+            </select>
+          </div>
+
+          <div id="e-konto-block">
+            <span class="lbl">Klassen-Konto</span>
+            <input type="text" id="e-konto" placeholder="klasse-3os" style="margin-bottom:6px;">
+            <span class="lbl">Ordner heissen</span>
+            <input type="text" id="e-repo" placeholder="gruppe-" style="margin-bottom:8px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:.85rem; cursor:pointer;">
+              <input type="checkbox" id="e-pages" style="width:auto;"> GitHub Pages ist schon eingeschaltet
+            </label>
+          </div>
+
+          <div class="divider"></div>
+
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span class="lbl" style="margin:0;">Werkzeuge für die Klasse</span>
+              <div class="spacer"></div>
+              <button class="btn btn-sm btn-ghost" id="e-reset-tools" title="Liste aus der Datei wiederherstellen">↺</button>
+            </div>
+            <div id="e-tools" style="display:flex; flex-direction:column; gap:9px;"></div>
+            <button class="btn btn-sm" id="e-add-tool" style="width:100%; margin-top:9px;">+ Werkzeug hinzufügen</button>
+          </div>
+
+          <div class="divider"></div>
+          <button class="btn btn-accent" id="e-copy">📋 Als Textblock für die Datei kopieren</button>
+          <p class="hint">Damit die Änderungen auch nach dem Schliessen bleiben: Knopf drücken,
+             dann den kopierten Block in der Datei bei <code>werkzeuge</code> einsetzen.</p>
+        </div>
+
+        <!-- Notizen -->
+        <div class="pane" id="p-notes">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="lbl" style="margin:0;">Notizen</span>
+            <div class="spacer"></div>
+            <button class="btn btn-sm btn-ghost" id="n-clear">Leeren</button>
+          </div>
+          <textarea id="notes" rows="16" placeholder="Beobachtungen, Zwischenstände, offene Punkte …"></textarea>
+          <p class="hint" style="text-align:right;">Automatisch auf diesem Gerät gespeichert</p>
+        </div>
+
+      </div>
+    </aside>
+  </div>
+
+  <footer id="foot" class="glass">
+    <button class="btn" id="b-prev">← Zurück</button>
+    <div class="foot-hint">
+      <span><span class="kbd">←</span> <span class="kbd">→</span> Schritt</span>
+      <span><span class="kbd">T</span> Timer</span>
+      <span><span class="kbd">W</span> Werkzeuge</span>
+      <span><span class="kbd">F</span> Vollbild</span>
+    </div>
+    <button class="btn btn-solid" id="b-next">Weiter →</button>
+  </footer>
+</div>
+
+<!-- ==========================================================================
+     SCHÜLER-ANSICHT
+     ========================================================================== -->
+<div id="sus">
+  <header id="sus-top" class="glass">
+    <div class="brand">
+      <div class="brand-mark">⚡</div>
+      <div class="brand-txt"><strong>VibeCoding</strong><span id="sus-sub">Schritt 1</span></div>
+    </div>
+    <div class="spacer"></div>
+    <span class="read-only">👁 Nur lesen</span>
+  </header>
+  <div id="sus-clock" class="glass" hidden>
+    <div class="clock-top">
+      <span id="clock-lbl">Zeit für diesen Schritt</span>
+      <span class="num" id="clock-val">--:--</span>
+    </div>
+    <div class="clock-track"><div class="clock-fill" id="clock-fill"></div></div>
+  </div>
+  <div id="sus-body"><div id="sus-inner" class="glass"></div></div>
+  <div id="sus-toast" class="glass" hidden><span id="toast-ic">⏳</span><span id="toast-txt"></span></div>
+  <footer id="sus-foot" class="glass">
+    <div id="sus-jump"></div>
+  </footer>
+</div>
+
+<!-- Modale -->
+<div class="sheet" id="sheet-qr">
+  <div class="sheet-card glass">
+    <button class="btn btn-icon btn-ghost sheet-x" data-close>✕</button>
+    <h3 id="qr-title" style="margin:0; font-size:1.25rem;">QR-Code</h3>
+    <div class="qr-wrap" id="qr-out"></div>
+    <div class="qr-url" id="qr-url"></div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet-teams">
+  <div class="sheet-card glass">
+    <button class="btn btn-icon btn-ghost sheet-x" data-close>✕</button>
+    <h2 style="margin:0; font-size:1.5rem;">👥 Teams &amp; Rollen</h2>
+    <div class="big-teams" id="teams-big"></div>
+  </div>
+</div>
+
+<div id="handout"></div>
+
+<script>
+/* ===========================================================================
+   ██  KONFIGURATION  ██
+   ---------------------------------------------------------------------------
+   Alles, was du anpassen willst, steht hier oben. Du musst nichts
+   programmieren können: Text zwischen den "Anführungszeichen" ersetzen,
+   Datei speichern, im Browser neu laden. Fertig.
+
+   Wichtig: Kommas und Klammern stehen lassen — nur den Text dazwischen ändern.
+   =========================================================================== */
+const CONFIG = {
+
+  titel: "VibeCoding",
+  untertitel: "Hackathon",
+
+  /* -------------------------------------------------------------------------
+     WIE WIRD VERÖFFENTLICHT?
+     Stell hier EINEN der vier Wege ein. Diese Wahl bestimmt auch, welche
+     Werkzeuge der Klasse überhaupt angezeigt werden — damit am Schluss
+     zusammenpasst, was am Anfang gebaut wurde.
+
+       "klassenkonto" → Ein GitHub-Konto der Klasse, pro Gruppe ein Repo.
+       "toolLink"     → Jedes Team teilt den Link seines eigenen Werkzeugs.
+       "schulcloud"   → Datei in die Schul-Cloud, keine öffentliche Seite.
+       "aus"          → Es wird nicht veröffentlicht, der Schritt entfällt.
+     --------------------------------------------------------------------- */
+  veroeffentlichungsweg: "klassenkonto",
+
+  klassenkonto: {
+    konto: "klasse-3os",          // Benutzername des Klassen-Kontos auf GitHub
+    repoMuster: "gruppe-",        // Repos heissen also gruppe-1, gruppe-2, …
+    pagesSchonAktiv: true         // true = du hast GitHub Pages vorher eingeschaltet
+  },
+
+  /* -------------------------------------------------------------------------
+     WERKZEUGE
+     ACHTUNG: Diese Liste veraltet schnell. Probiere jedes Werkzeug kurz
+     selbst aus, bevor du damit vor die Klasse stehst — Anmeldepflicht,
+     Altersgrenzen und Gratis-Kontingente ändern sich laufend.
+
+     zugang:  "offen"       = ohne Konto nutzbar
+              "lehrperson"  = läuft über deinen Zugang
+              "konto"       = braucht ein eigenes Konto (Altersgrenze prüfen!)
+     --------------------------------------------------------------------- */
+  werkzeuge: {
+
+    // Für alle Wege ausser "toolLink": liefern eine einzelne HTML-Datei.
+    einzeldatei: [
+      { name:"KI-Zugang der Schule", url:"https://chatgpt.com", zugang:"lehrperson",
+        zweck:"bauen",
+        text:"Der Zugang, den deine Lehrperson eingerichtet hat. Sag der KI, sie soll dir eine "
+            +"vollständige HTML-Datei schreiben — mit allem drin." },
+      { name:"Claude", url:"https://claude.ai", zugang:"konto", zweck:"bauen",
+        text:"Zeigt das Ergebnis gleich als Vorschau neben dem Chat an und lässt die Datei "
+            +"herunterladen." },
+      { name:"ChatGPT", url:"https://chatgpt.com", zugang:"konto", zweck:"bauen",
+        text:"Kann Code schreiben und im Canvas direkt bearbeiten." },
+      { name:"CodePen", url:"https://codepen.io/pen", zugang:"offen", zweck:"testen",
+        text:"Code einfügen und sofort laufen sehen. Schreibt selbst nichts — zum Ausprobieren "
+            +"und Weiterbasteln." }
+    ],
+
+    // Nur sichtbar, wenn der Weg "toolLink" eingestellt ist: diese Werkzeuge
+    // bauen ganze Projekte und veröffentlichen mit ihrem eigenen Knopf.
+    projekt: [
+      { name:"Bolt", url:"https://bolt.new", zugang:"konto", zweck:"bauen",
+        text:"Baut komplette Web-Apps und hat einen eigenen Knopf zum Veröffentlichen. "
+            +"Gratis-Kontingent pro Tag ist begrenzt." },
+      { name:"Lovable", url:"https://lovable.dev", zugang:"konto", zweck:"bauen",
+        text:"Aus einer Beschreibung wird eine fertige App mit Live-Vorschau." },
+      { name:"v0", url:"https://v0.dev", zugang:"konto", zweck:"bauen",
+        text:"Stark bei schönen Oberflächen. Liefert ein Projekt, keine einzelne Datei." }
+    ]
+  },
+
+  /* --- Rollen für die Auslosung ----------------------------------------- */
+  rollen: [
+    { name:"Prompt-Pilot:in", text:"redet mit der KI und schreibt die Aufträge" },
+    { name:"Test-Chef:in",    text:"klickt alles durch und sucht Fehler" },
+    { name:"Design-Chef:in",  text:"achtet auf Aussehen, Texte und Verständlichkeit" },
+    { name:"Zeit-Wächter:in", text:"behält die Zeit im Blick und führt am Schluss vor" }
+  ],
+
+  /* --- Leitfragen fürs Peer-Feedback ------------------------------------- */
+  feedbackfragen: {
+    zwischen: [
+      "Was funktioniert schon richtig gut?",
+      "Habt ihr verstanden, was die App macht — ohne Erklärung?",
+      "Welche EINE Sache würde am meisten bringen?",
+      "Wo seht ihr die grösste Gefahr, dass etwas kaputtgeht?"
+    ],
+    schluss: [
+      "Was kann diese App, das euch überrascht hat?",
+      "War klar, wo man klicken muss?",
+      "Was habt ihr vom Team gelernt, das ihr selbst brauchen könnt?",
+      "Wofür könnte man das ausserhalb der Schule gebrauchen?"
+    ]
+  },
+
+  /* =========================================================================
+     DIE SCHRITTE
+     -------------------------------------------------------------------------
+     Pro Schritt:
+       titel      – steht gross oben
+       timerMin   – Vorschlag für den Timer. Wird NIRGENDS angezeigt, damit
+                    niemand unter Zeitdruck gerät. Du kannst jederzeit
+                    verlängern oder kürzen.
+       ziel       – ein Satz: was am Ende dieses Schritts da sein soll
+       punkte     – die eigentliche Anleitung für die Klasse
+       tipp       – ein Gedanke, der über die Anleitung hinausgeht
+       sicherheit – Sicherheits-Check (weglassen mit: sicherheit: null)
+       lp         – Moderationshinweise. Sieht NUR die Lehrperson.
+     ===================================================================== */
+  schritte: [
+
+  /* ---------------------------------------------------------------- 1 --- */
+  {
+    id:"intro", titel:"Worum geht's?", timerMin:15,
+    machen:"Du erfährst, wie ihr heute mit einer KI eine eigene App baut.",
+    lernen:"Warum ein kleines Ziel schneller zu etwas Fertigem führt als ein grosses.",
+    ziel:"Du weisst, was ihr baut und wie ihr mit der KI arbeitet.",
+    punkte:[
+      { t:"Ihr sagt es, die KI tippt",
+        s:"Du beschreibst, was die App können soll. Die KI schreibt den Code. Du prüfst nach." },
+      { t:"Fang klein an",
+        s:"Eine Sache, die funktioniert: ein Würfel, ein Quiz, ein Rechner fürs Sackgeld." },
+      { t:"Fehler sind normal",
+        s:"Fehlermeldung kopieren und der KI schicken: <code>Erkläre den Fehler und repariere ihn.</code>" },
+      { t:"Der Ablauf",
+        s:"Team → Werkzeug → bauen → zeigen → verbessern → prüfen → online → vorführen." }
+    ],
+    tipp:"Die KI behauptet auch Falsches mit voller Überzeugung. <b>Du</b> entscheidest, ob etwas gut ist.",
+    sicherheit:null,
+    lp:[
+      "Der häufigste Grund für Frust ist ein zu grosses Ziel. Sag lieber zweimal zu viel „kleiner“ "
+       +"als einmal zu wenig — Ausbauen geht immer, Retten nicht.",
+      "Wer schon programmiert, will oft selbst tippen und die KI umgehen. Lass das zu, aber benenne "
+       +"es: Heute geht es genau um die Zusammenarbeit mit der Maschine, nicht um das schnellste Ergebnis.",
+      "Wenn du ein Beispiel zeigen willst: etwas absichtlich Unfertiges wirkt besser als ein "
+       +"Hochglanz-Produkt. Sonst legt die Klasse die Messlatte falsch."
+    ]
+  },
+
+  /* ---------------------------------------------------------------- 2 --- */
+  {
+    id:"team", titel:"Team & Idee", timerMin:15,
+    machen:"Ihr bildet ein Team und einigt euch auf eine Idee.",
+    lernen:"Wie man aus vielen Ideen die heraussucht, die wirklich machbar ist.",
+    ziel:"Ihr habt EINE Idee und könnt sie in einem Satz sagen.",
+    punkte:[
+      { t:"Erst allein denken",
+        s:"Jede Person schreibt still zwei bis drei Ideen auf. Noch nicht reden." },
+      { t:"Eine auswählen",
+        s:"Welche schafft ihr in der Zeit? Die nehmt ihr — nicht die spannendste." },
+      { t:"In einem Satz sagen",
+        s:"<code>Unsere App hilft [wem], [was zu tun].</code>" },
+      { t:"Rollen verteilen",
+        s:"Prompt-Pilot:in, Test-Chef:in, Design-Chef:in, Zeit-Wächter:in." }
+    ],
+    tipp:"<b>Zu gross?</b> Wenn ihr ein Login braucht oder Daten speichern müsst: streichen.",
+    sicherheit:null,
+    lp:[
+      "Der Gruppengenerator im Werkzeugkasten mischt Namen und verteilt die Rollen. "
+       +"Über „⛶ Gross anzeigen“ landet das Ergebnis lesbar auf dem Beamer.",
+      "Selbst gewählte Teams arbeiten am Anfang schneller, gemischte lernen mehr. Bei einem "
+       +"einmaligen Anlass ist selbst wählen meist die bessere Wahl.",
+      "Geh von Tisch zu Tisch und lass dir den Ein-Satz-Auftrag vorlesen. Teams, die ihn nicht "
+       +"formulieren können, verlieren später am meisten Zeit — hier eingreifen kostet zwei Minuten, "
+       +"später eine halbe Stunde."
+    ]
+  },
+
+  /* ---------------------------------------------------------------- 3 --- */
+  {
+    id:"tool", titel:"Werkzeug testen", timerMin:10,
+    machen:"Ihr wählt ein Werkzeug und gebt ihm einen Testauftrag.",
+    lernen:"Warum man Werkzeuge ausprobiert, bevor man sie wirklich braucht.",
+    ziel:"Euer Werkzeug läuft.",
+    punkte:[
+      { t:"Werkzeug wählen",
+        s:"Eines aus der Liste unten. Dabei bleibt ihr den ganzen Tag." },
+      { t:"Testauftrag geben",
+        s:"<code>Schreibe eine HTML-Datei mit einem Knopf. Ein Klick zeigt „Es funktioniert“.</code>" },
+      { t:"Hat es geklappt?",
+        s:"Knopf da, Klick tut etwas? Weiter. Sonst meldet euch — jetzt, nicht später." },
+      { t:"Merkt euch den Ort",
+        s:"In welchem Chat, in welchem Tab? Kurz aufschreiben." }
+    ],
+    tipp:"Fünf Minuten hier ersparen euch später eine Stunde.",
+    sicherheit:{
+      titel:"Stopp, bevor ihr etwas eingebt",
+      punkte:[
+        "Fragt es nach <b>Name, E-Mail, Geburtsdatum oder Handynummer</b>? Nichts eingeben.",
+        "Will es <b>Kamera, Mikrofon oder Standort</b>? Nicht erlauben.",
+        "Sollst du <b>bezahlen</b>? Auf keinen Fall."
+      ],
+      frage:"Melde dich bei deiner Lehrperson. Sie schaut es an und entscheidet."
+    },
+    lp:[
+      "Über diesen Schritt entscheidet sich der ganze Anlass. Geh sicher, dass JEDES Team einen "
+       +"erfolgreichen Testauftrag hatte, bevor der nächste Schritt startet. Notfalls warten.",
+      "Gratis-Kontingente: Mehrere Werkzeuge begrenzen die Anzahl Anfragen pro Tag. Bei einer "
+       +"ganzen Klasse parallel ist damit zu rechnen. Halte einen Plan B bereit und benenne ihn "
+       +"jetzt schon, damit später niemand improvisieren muss.",
+      "Die Sicherheits-Frage ist bewusst gestellt: Die Klasse soll das Melden üben, solange es "
+       +"harmlos ist. Reagiere darauf freundlich, auch beim fünften Mal — sonst meldet sich beim "
+       +"sechsten Mal niemand mehr, und dann ist es vielleicht wichtig."
+    ]
+  },
+
+  /* ---------------------------------------------------------------- 4 --- */
+  {
+    id:"bau1", titel:"Bauen", timerMin:45,
+    machen:"Ihr beschreibt der KI eure App und bessert Schritt für Schritt nach.",
+    lernen:"Wie man einen Auftrag so formuliert, dass eine Maschine ihn versteht.",
+    ziel:"Etwas läuft im Browser.",
+    punkte:[
+      { t:"Der erste Auftrag",
+        s:"<code>Baue eine einzelne HTML-Datei. Sie soll [das können]. Gib mir die ganze Datei.</code>" },
+      { t:"Nicht alles auf einmal",
+        s:"Erst das Grundgerüst. Testen. Dann die nächste Funktion." },
+      { t:"Nach jedem Schritt klicken",
+        s:"Wirklich klicken. Was passiert bei einem leeren Feld?" },
+      { t:"Sichern",
+        s:"Code kopieren und als <code>index.html</code> speichern. Jetzt und später nochmal." }
+    ],
+    tipp:"<b>Dreht sich die KI im Kreis?</b> Neuer Chat, Ziel neu beschreiben, letzten guten Code einfügen.",
+    sicherheit:{
+      titel:"Was nicht in eure App gehört",
+      punkte:[
+        "Keine <b>echten Namen, Adressen, Nummern oder Fotos</b>. Erfindet Beispiele.",
+        "Keine Bilder oder Musik aus dem Netz, die euch nicht gehören.",
+        "Nichts, worüber sich jemand aus eurer Klasse ärgern würde."
+      ],
+      frage:"Unsicher? Frag lieber nach, bevor es drin ist."
+    },
+    lp:[
+      "Nach etwa der Hälfte der Zeit: alle kurz aufstehen lassen und reihum auf die Bildschirme "
+       +"schauen. Hat jedes Team etwas, das im Browser erscheint? Das dauert drei Minuten und "
+       +"zeigt dir sofort, wer abgehängt ist.",
+      "Teams, die sehr still sind, sind selten gut unterwegs. Die lauten Teams streiten über "
+       +"Features — die stillen kommen oft gar nicht rein.",
+      "Der Sicherungs-Schritt ist nicht optional. Erinnere aktiv daran; er ist die einzige "
+       +"Versicherung gegen einen verlorenen Chat, und die Erfahrung „alles weg“ verdirbt den "
+       +"ganzen Anlass."
+    ]
+  },
+
+  /* ---------------------------------------------------------------- 5 --- */
+  {
+    id:"zeigen", titel:"Einander zeigen", timerMin:20,
+    machen:"Jedes Team zeigt seinen Stand, die anderen geben Rückmeldung.",
+    lernen:"Wie brauchbares Feedback klingt.",
+    ziel:"Ihr wisst, woran ihr als Nächstes arbeitet.",
+    punkte:[
+      { t:"Kurz zeigen",
+        s:"Was soll die App können? Was läuft schon? Wo hängt ihr fest?" },
+      { t:"Auch das Kaputte zeigen",
+        s:"Die anderen hatten denselben Fehler vielleicht schon." },
+      { t:"Feedback geben",
+        s:"Eine Sache, die gut ist. Eine Idee. Eine ehrliche Frage." },
+      { t:"Aufschreiben",
+        s:"Eine Person notiert mit. Merken klappt nicht." }
+    ],
+    tipp:"<b>„Cool“ ist kein Feedback.</b> Sag, <i>was</i> genau gut war.",
+    sicherheit:null,
+    lp:[
+      "Der Runden-Timer im Werkzeugkasten macht die Runde für dich: Zeigen, Feedback, nächstes Team.",
+      "Rechne nach, bevor du startest: Zeigen plus Feedback mal Anzahl Teams. Bei fünf Teams ist "
+       +"eine 20-Minuten-Runde bereits zu knapp — kürze dann lieber die Feedback-Zeit, als hinten "
+       +"in den Bau-Schritt hineinzulaufen.",
+      "Bestehe auf dem „Wo hängt ihr fest?“. Teams überspringen das aus Stolz, dabei ist es der "
+       +"Teil, der den anderen am meisten bringt — und der Moment, in dem die Klasse merkt, dass "
+       +"Steckenbleiben normal ist."
+    ]
+  },
+
+  /* ---------------------------------------------------------------- 6 --- */
+  {
+    id:"bau2", titel:"Verbessern & testen", timerMin:45,
+    machen:"Ihr baut das Feedback ein und macht die App fertig.",
+    lernen:"Warum fremde Augen mehr finden als eigenes Weiterbauen.",
+    ziel:"Die App tut zuverlässig, was sie soll.",
+    punkte:[
+      { t:"Das Wichtigste zuerst",
+        s:"Was bringt am meisten? Nicht: was macht am meisten Spass." },
+      { t:"Nichts Neues mehr",
+        s:"Im letzten Drittel nur noch reparieren, Texte verbessern, aufräumen." },
+      { t:"Andere ausprobieren lassen",
+        s:"Jemand aus einem anderen Team bedient eure App. Ihr sagt nichts." },
+      { t:"Handy-Test",
+        s:"Browserfenster schmal ziehen. Geht es immer noch?" },
+      { t:"Nochmal sichern",
+        s:"Aktuellen Stand als <code>index.html</code> speichern." }
+    ],
+    tipp:"<b>Ein Knopf, der immer tut was er verspricht</b>, ist mehr wert als fünf halbe Sachen.",
+    sicherheit:null,
+    lp:[
+      "Sag den Bau-Stopp laut an — „ab jetzt keine neuen Funktionen mehr“. Ohne diese Ansage baut "
+       +"mindestens ein Team bis zur letzten Sekunde weiter und steht am Schluss mit einer kaputten "
+       +"App da.",
+      "Kurz aufstehen lassen, Fenster auf, etwas trinken. Nach dieser Zeit am Bildschirm ist eine "
+       +"Pause keine verlorene Zeit, sondern der Grund, warum der letzte Schritt noch gelingt.",
+      "Das gegenseitige Ausprobieren ist der Moment mit dem grössten Aha-Effekt: Zum ersten Mal "
+       +"merken die Teams, dass etwas selbstverständlich Wirkendes für andere unverständlich ist. "
+       +"Plane dafür bewusst Zeit ein, statt es als Restpunkt zu behandeln."
+    ]
+  },
+
+  /* ---------------------------------------------------------------- 7 --- */
+  {
+    id:"check", titel:"Sicherheits-Check", timerMin:10,
+    machen:"Ihr prüft eure App durch und holt euch die Freigabe.",
+    lernen:"Worauf man schaut, bevor etwas ins Internet geht.",
+    ziel:"Eure App ist geprüft und freigegeben.",
+    punkte:[
+      { t:"Gleich wird das öffentlich",
+        s:"Jede Person im Internet kann das aufrufen — nicht nur eure Klasse." },
+      { t:"Persönliche Daten",
+        s:"Echte Namen, Adressen, Nummern, Fotos? Raus. Auch eure eigenen." },
+      { t:"Fremde Bilder und Musik",
+        s:"Ohne Erlaubnis: weglassen oder selbst machen." },
+      { t:"Wie klingt das für andere?",
+        s:"Könnte ein Text jemanden verletzen? Dann ändern." },
+      { t:"Von der KI behauptet?",
+        s:"Zahlen und Fakten nachprüfen oder rausnehmen." }
+    ],
+    tipp:"<b>Online stellen dauert zehn Sekunden. Wegbekommen manchmal nie.</b>",
+    sicherheit:{
+      titel:"Menschliche Überprüfung — jetzt",
+      punkte:[
+        "Geht die Liste gemeinsam im Team durch.",
+        "Holt eure Lehrperson und zeigt ihr die App.",
+        "Erst nach ihrem Okay geht es weiter."
+      ],
+      frage:"Ohne das Okay eurer Lehrperson geht keine Gruppe online."
+    },
+    lp:[
+      "Plane hier echt Zeit ein und lass dir jede App zeigen. Für viele ist das die erste eigene "
+       +"Veröffentlichung im Netz — dieser Moment prägt, wie sorgfältig sie das künftig angehen.",
+      "Häufigster Fund: echte Namen aus der Klasse in Beispieldaten, und Bilder aus der "
+       +"Bildersuche. Beides wirkt harmlos und ist beides ein Problem.",
+      "Für die Weiterbildung: Dieser Schritt lässt sich eins zu eins auf andere KI-Aufgaben "
+       +"übertragen — Prüfen, was rausgeht, bevor es rausgeht. Das ist die Gewohnheit, die bleibt, "
+       +"wenn die Werkzeuge längst andere sind."
+    ]
+  },
+
+  /* ---------------------------------------------------------------- 8 --- */
+  /* Dieser Schritt wird automatisch aus dem oben eingestellten
+     Veröffentlichungsweg erzeugt — siehe WEGE weiter unten.              */
+  { id:"online", titel:"Online stellen", timerMin:15, ziel:"", punkte:[], tipp:"",
+    sicherheit:null, lp:[] },
+
+  /* ---------------------------------------------------------------- 9 --- */
+  {
+    id:"schluss", titel:"Vorführen & nachdenken", timerMin:20,
+    machen:"Jedes Team führt vor, danach schaut ihr gemeinsam zurück.",
+    lernen:"Was die KI konnte — und was eure eigene Leistung war.",
+    ziel:"Alle haben alles gesehen.",
+    punkte:[
+      { t:"Kurz vorführen",
+        s:"Was macht eure App und für wen? Einmal live durchklicken." },
+      { t:"Wo war die KI stark?",
+        s:"Was ging schneller, als ihr erwartet habt?" },
+      { t:"Wo hat sie Mist gebaut?",
+        s:"Wo hat sie etwas erfunden oder euch nicht verstanden?" },
+      { t:"Was konntet nur ihr?",
+        s:"Entscheiden, was gebaut wird. Merken, wann etwas komisch ist. Aufhören." }
+    ],
+    tipp:"<b>Das Wichtigste war nicht der Code.</b> Ihr habt etwas gebaut, das vorher nicht existiert hat.",
+    sicherheit:null,
+    lp:[
+      "Applaus für jedes Team, ausnahmslos — auch für das, dessen App nicht läuft. Der Anlass "
+       +"belohnt das Machen, nicht das Gelingen.",
+      "Die vierte Frage ist die wichtigste. Die Antwort darauf ist genau das, was in der "
+       +"Bildungsdebatte gemeint ist, wenn vom Verschieben der menschlichen Rolle die Rede ist — "
+       +"und hier können es alle an einem eigenen Beispiel benennen.",
+      "Für die Weiterbildung: Was müsste an diesem Ablauf anders sein, damit er in deiner Klasse "
+       +"funktioniert? Welcher Schritt würde bei dir am ehesten kippen, und was bräuchtest du dafür?"
+    ]
+  }
+  ],
+
+  /* =========================================================================
+     DIE VIER VERÖFFENTLICHUNGSWEGE
+     -------------------------------------------------------------------------
+     Oben bei "veroeffentlichungsweg" wählst du einen aus. Nur dieser wird
+     angezeigt. Die Platzhalter {konto}, {repo} und {adresse} füllt die Seite
+     selbst aus — du musst sie nicht ersetzen.
+     ===================================================================== */
+  wege: {
+
+    klassenkonto: {
+      name:"Klassen-Konto auf GitHub",
+      nurEinzeldatei:true,
+      machen:"Ihr ladet eure Datei hoch und bekommt eine eigene Internetadresse.",
+      lernen:"Wie aus einer Datei auf deinem Gerät eine Seite wird, die von überall erreichbar ist.",
+      ziel:"Eure App ist online.",
+      punkte:[
+        { t:"Anmelden",
+          s:"Auf <code>github.com</code> mit den Daten eurer Lehrperson. Konto: <code>{konto}</code>" },
+        { t:"Euren Ordner öffnen",
+          s:"<code>github.com/{konto}/{repo}</code>" },
+        { t:"Datei hochladen",
+          s:"<b>Add file → Upload files</b>, Datei hineinziehen. Sie muss <code>index.html</code> heissen." },
+        { t:"Speichern",
+          s:"Ganz unten auf den grünen Knopf <b>Commit changes</b>." },
+        { t:"Eure Adresse",
+          s:"<code>{adresse}</code> — nach ein bis zwei Minuten erreichbar." }
+      ],
+      punkteOhnePages:[
+        { t:"Seite freischalten",
+          s:"<b>Settings → Pages</b>. Source: <b>Deploy from a branch</b>, Branch <b>main</b>, Ordner <b>/ (root)</b>, dann <b>Save</b>." }
+      ],
+      tipp:"<b>404?</b> Die Datei heisst nicht <code>index.html</code>, liegt in einem Unterordner — oder es ist noch zu früh."
+    },
+
+    toolLink: {
+      name:"Link des eigenen Werkzeugs",
+      nurEinzeldatei:false,
+      machen:"Ihr veröffentlicht über euer Werkzeug und prüft den Link.",
+      lernen:"Dass ein Link nicht automatisch für alle funktioniert.",
+      ziel:"Eure App ist über einen Link erreichbar.",
+      punkte:[
+        { t:"Knopf zum Veröffentlichen suchen",
+          s:"Meist oben rechts: <b>Publish</b>, <b>Deploy</b> oder <b>Share</b>." },
+        { t:"Link kopieren",
+          s:"Die ganze Adresse, die ihr bekommt." },
+        { t:"In einem anderen Browser testen",
+          s:"Auf dem Handy oder im privaten Fenster. Wird eine Anmeldung verlangt? Dann geht der Link für andere nicht." },
+        { t:"Link abgeben",
+          s:"Dorthin schicken, wo eure Lehrperson ihn sammelt." }
+      ],
+      punkteOhnePages:[],
+      tipp:"Manche Gratis-Links laufen nach Tagen ab. Ladet zusätzlich eure <code>index.html</code> herunter."
+    },
+
+    schulcloud: {
+      name:"Schul-Cloud",
+      nurEinzeldatei:true,
+      machen:"Ihr legt eure Datei am vereinbarten Ort ab.",
+      lernen:"Den Unterschied zwischen „gespeichert“ und „veröffentlicht“.",
+      ziel:"Eure Datei liegt am richtigen Ort und lässt sich öffnen.",
+      punkte:[
+        { t:"Datei bereitlegen",
+          s:"Eure fertige <code>index.html</code>." },
+        { t:"In den Klassenordner legen",
+          s:"Benennt sie erkennbar, zum Beispiel <code>gruppe-3.html</code>" },
+        { t:"Ausprobieren",
+          s:"Von dort wieder herunterladen und im Browser öffnen. Läuft alles?" }
+      ],
+      punkteOhnePages:[],
+      tipp:"In der Cloud liegt eure App — aber ohne Adresse, die man weitergeben kann. Für heute reicht das."
+    },
+
+    aus: {
+      name:"Nicht veröffentlichen",
+      nurEinzeldatei:true,
+      machen:"Ihr sichert eure Datei und macht sie bereit zum Vorführen.",
+      lernen:"Dass die Datei alles ist, was ihr braucht.",
+      ziel:"Eure Arbeit ist gesichert.",
+      punkte:[
+        { t:"Datei speichern",
+          s:"<code>index.html</code> auf eurem Gerät — und zur Sicherheit noch in eure Cloud." },
+        { t:"Bereit zum Vorführen",
+          s:"Einmal im Browser öffnen und offen lassen." }
+      ],
+      punkteOhnePages:[],
+      tipp:"Veröffentlichen könnt ihr später jederzeit — die Datei genügt dafür."
+    }
+  }
+};
+/* ======================= ENDE DER KONFIGURATION ========================== */
+
+/* ===========================================================================
+   QR-CODE — vollstaendiger Encoder nach ISO/IEC 18004 (Byte-Modus,
+   Version 1-10, Fehlerkorrektur M). Laeuft offline, ohne Bibliothek.
+   Geprueft: Format- und Versionsbits gegen die Norm, Reed-Solomon ueber
+   die Syndrom-Eigenschaft, plus Rueck-Decodierung der fertigen Matrix.
+   =========================================================================== */
+const QRCode = (function () {
+
+  /* --- Galois-Feld GF(256), Primpolynom 0x11D ------------------------------ */
+  const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  (function initGF() {
+    let x = 1;
+    for (let i = 0; i < 255; i++) {
+      EXP[i] = x;
+      LOG[x] = i;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11D;
+    }
+    for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  })();
+
+  const gfMul = (a, b) => (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]];
+
+  /* --- Generatorpolynom fuer n Fehlerkorrektur-Codewoerter ----------------- */
+  function rsGenerator(n) {
+    let g = [1];
+    for (let i = 0; i < n; i++) {
+      const next = new Array(g.length + 1).fill(0);
+      for (let j = 0; j < g.length; j++) {
+        next[j] ^= g[j];
+        next[j + 1] ^= gfMul(g[j], EXP[i]);
+      }
+      g = next;
+    }
+    return g;
+  }
+
+  /* --- Reed-Solomon: Rest der Polynomdivision ------------------------------ */
+  function rsEncode(data, ecCount) {
+    const gen = rsGenerator(ecCount);
+    const res = new Array(data.length + ecCount).fill(0);
+    for (let i = 0; i < data.length; i++) res[i] = data[i];
+    for (let i = 0; i < data.length; i++) {
+      const factor = res[i];
+      if (factor === 0) continue;
+      for (let j = 0; j < gen.length; j++) res[i + j] ^= gfMul(gen[j], factor);
+    }
+    return res.slice(data.length);
+  }
+
+  /* --- Blockaufteilung fuer Fehlerkorrekturstufe M, Version 1-10 -----------
+     [ Gesamt-Codewoerter, EC-Codewoerter je Block,
+       Bloecke Gruppe 1, Datenwoerter je Block G1,
+       Bloecke Gruppe 2, Datenwoerter je Block G2 ]                          */
+  const BLOCKS_L = {
+     1: [ 26,  7, 1, 19, 0,  0],
+     2: [ 44, 10, 1, 34, 0,  0],
+     3: [ 70, 15, 1, 55, 0,  0],
+     4: [100, 20, 1, 80, 0,  0],
+     5: [134, 26, 1,108, 0,  0],
+     6: [172, 18, 2, 68, 0,  0],
+     7: [196, 20, 2, 78, 0,  0],
+     8: [242, 24, 2, 97, 0,  0],
+     9: [292, 30, 2,116, 0,  0],
+    10: [346, 18, 2, 68, 2, 69]
+  };
+
+  const BLOCKS_M = {
+     1: [ 26, 10, 1, 16, 0,  0],
+     2: [ 44, 16, 1, 28, 0,  0],
+     3: [ 70, 26, 1, 44, 0,  0],
+     4: [100, 18, 2, 32, 0,  0],
+     5: [134, 24, 2, 43, 0,  0],
+     6: [172, 16, 4, 27, 0,  0],
+     7: [196, 18, 4, 31, 0,  0],
+     8: [242, 22, 2, 38, 2, 39],
+     9: [292, 22, 3, 36, 2, 37],
+    10: [346, 26, 4, 43, 1, 44]
+  };
+
+  const ALIGN = {
+     1: [], 2: [6,18], 3: [6,22], 4: [6,26], 5: [6,30],
+     6: [6,34], 7: [6,22,38], 8: [6,24,42], 9: [6,26,46], 10: [6,28,50]
+  };
+
+  const REMAINDER = {1:0, 2:7, 3:7, 4:7, 5:7, 6:7, 7:0, 8:0, 9:0, 10:0};
+
+  function tabelle(stufe) { return stufe === "L" ? BLOCKS_L : BLOCKS_M; }
+
+  function dataCapacityBytes(version, stufe = "M") {
+    const b = tabelle(stufe)[version];
+    const dataWords = b[2] * b[3] + b[4] * b[5];
+    const countBits = version >= 10 ? 16 : 8;
+    return Math.floor((dataWords * 8 - 4 - countBits) / 8);
+  }
+
+  function pickVersion(byteLen, stufe) {
+    for (let v = 1; v <= 10; v++) if (byteLen <= dataCapacityBytes(v, stufe)) return v;
+    return null;   // zu lang — der Aufrufer entscheidet, was dann passiert
+  }
+
+  // Wie viele Bytes passen maximal? Fuer die Warnung an die Lehrperson.
+  function maxBytes(stufe = "M") { return dataCapacityBytes(10, stufe); }
+
+  /* --- BCH-Codes fuer Format- und Versionsinformation ---------------------- */
+  function bch(value, generator, genBits) {
+    let v = value << (genBits - 1);
+    const genLen = generator.toString(2).length;
+    while (v.toString(2).length >= genLen) {
+      v ^= generator << (v.toString(2).length - genLen);
+    }
+    return v;
+  }
+
+  function formatBits(maskId, stufe = "M") {
+    // Kennung der Fehlerkorrekturstufe: L = 0b01, M = 0b00
+    const data = ((stufe === "L" ? 0b01 : 0b00) << 3) | maskId;
+    const rest = bch(data, 0x537, 11);
+    return ((data << 10) | rest) ^ 0x5412;
+  }
+
+  function versionBits(version) {
+    const rest = bch(version, 0x1F25, 13);
+    return (version << 12) | rest;
+  }
+
+  /* --- Maskenfunktionen ---------------------------------------------------- */
+  const MASKS = [
+    (r, c) => (r + c) % 2 === 0,
+    (r, c) => r % 2 === 0,
+    (r, c) => c % 3 === 0,
+    (r, c) => (r + c) % 3 === 0,
+    (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+    (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
+    (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
+    (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0
+  ];
+
+  /* --- Bitstrom aus Text erzeugen ------------------------------------------ */
+  function buildBitstream(bytes, version, stufe) {
+    const bits = [];
+    const push = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); };
+
+    push(0b0100, 4);                                   // Modus: Byte
+    push(bytes.length, version >= 10 ? 16 : 8);        // Laengenfeld
+    for (const b of bytes) push(b, 8);
+
+    const blk = tabelle(stufe)[version];
+    const totalDataWords = blk[2] * blk[3] + blk[4] * blk[5];
+    const capacityBits = totalDataWords * 8;
+
+    for (let i = 0; i < 4 && bits.length < capacityBits; i++) bits.push(0);  // Terminator
+    while (bits.length % 8 !== 0) bits.push(0);                              // auf Byte auffuellen
+
+    const pad = [0xEC, 0x11];
+    let p = 0;
+    const words = [];
+    for (let i = 0; i < bits.length; i += 8) {
+      let w = 0;
+      for (let j = 0; j < 8; j++) w = (w << 1) | bits[i + j];
+      words.push(w);
+    }
+    while (words.length < totalDataWords) words.push(pad[p++ % 2]);
+    return words;
+  }
+
+  /* --- Bloecke bilden, Fehlerkorrektur anhaengen, verschachteln ------------ */
+  function interleave(dataWords, version, stufe) {
+    const [, ecPerBlock, g1, d1, g2, d2] = tabelle(stufe)[version];
+    const blocks = [], ecBlocks = [];
+    let pos = 0;
+
+    for (let i = 0; i < g1; i++) { blocks.push(dataWords.slice(pos, pos + d1)); pos += d1; }
+    for (let i = 0; i < g2; i++) { blocks.push(dataWords.slice(pos, pos + d2)); pos += d2; }
+    for (const b of blocks) ecBlocks.push(rsEncode(b, ecPerBlock));
+
+    const out = [];
+    const maxData = Math.max(d1, d2 || 0);
+    for (let i = 0; i < maxData; i++)
+      for (const b of blocks) if (i < b.length) out.push(b[i]);
+    for (let i = 0; i < ecPerBlock; i++)
+      for (const b of ecBlocks) out.push(b[i]);
+
+    return out;
+  }
+
+  /* --- Matrix aufbauen ----------------------------------------------------- */
+  function buildMatrix(version) {
+    const size = version * 4 + 17;
+    const m = Array.from({length: size}, () => new Array(size).fill(null));
+    const reserved = Array.from({length: size}, () => new Array(size).fill(false));
+
+    function placeFinder(row, col) {
+      for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) {
+        const rr = row + r, cc = col + c;
+        if (rr < 0 || rr >= size || cc < 0 || cc >= size) continue;
+        const onBorder = (r === 0 || r === 6) && c >= 0 && c <= 6;
+        const onSide   = (c === 0 || c === 6) && r >= 0 && r <= 6;
+        const inCore   = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+        m[rr][cc] = (onBorder || onSide || inCore) ? 1 : 0;
+        reserved[rr][cc] = true;
+      }
+    }
+    placeFinder(0, 0); placeFinder(0, size - 7); placeFinder(size - 7, 0);
+
+    // Taktmuster
+    for (let i = 8; i < size - 8; i++) {
+      m[6][i] = i % 2 === 0 ? 1 : 0; reserved[6][i] = true;
+      m[i][6] = i % 2 === 0 ? 1 : 0; reserved[i][6] = true;
+    }
+
+    // Ausrichtungsmuster
+    const centers = ALIGN[version];
+    for (const r of centers) for (const c of centers) {
+      if ((r <= 8 && c <= 8) || (r <= 8 && c >= size - 9) || (r >= size - 9 && c <= 8)) continue;
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+        const edge = Math.max(Math.abs(dr), Math.abs(dc));
+        m[r + dr][c + dc] = (edge === 1) ? 0 : 1;
+        reserved[r + dr][c + dc] = true;
+      }
+    }
+
+    // Dunkles Modul
+    m[size - 8][8] = 1; reserved[size - 8][8] = true;
+
+    // Bereiche fuer Formatinformation reservieren
+    for (let i = 0; i <= 8; i++) {
+      if (!reserved[8][i])        { reserved[8][i] = true; m[8][i] = 0; }
+      if (!reserved[i][8])        { reserved[i][8] = true; m[i][8] = 0; }
+    }
+    for (let i = 0; i < 8; i++) {
+      if (!reserved[8][size - 1 - i]) { reserved[8][size - 1 - i] = true; m[8][size - 1 - i] = 0; }
+      if (!reserved[size - 1 - i][8]) { reserved[size - 1 - i][8] = true; m[size - 1 - i][8] = 0; }
+    }
+
+    // Versionsinformation ab Version 7
+    if (version >= 7) {
+      const vb = versionBits(version);
+      for (let i = 0; i < 18; i++) {
+        const bit = (vb >> i) & 1;
+        const r = Math.floor(i / 3), c = i % 3;
+        m[r][size - 11 + c] = bit; reserved[r][size - 11 + c] = true;
+        m[size - 11 + c][r] = bit; reserved[size - 11 + c][r] = true;
+      }
+    }
+
+    return {m, reserved, size};
+  }
+
+  /* --- Datenbits im Zickzack platzieren ------------------------------------ */
+  function placeData(m, reserved, size, words, version) {
+    const bits = [];
+    for (const w of words) for (let i = 7; i >= 0; i--) bits.push((w >> i) & 1);
+    for (let i = 0; i < REMAINDER[version]; i++) bits.push(0);
+
+    let idx = 0, upward = true;
+    for (let right = size - 1; right > 0; right -= 2) {
+      if (right === 6) right = 5;                       // Spalte 6 ueberspringen
+      for (let v = 0; v < size; v++) {
+        const row = upward ? size - 1 - v : v;
+        for (let k = 0; k < 2; k++) {
+          const col = right - k;
+          if (reserved[row][col]) continue;
+          m[row][col] = idx < bits.length ? bits[idx] : 0;
+          idx++;
+        }
+      }
+      upward = !upward;
+    }
+    return idx;
+  }
+
+  /* --- Bewertung der Maskierung (Regeln 1-4) ------------------------------- */
+  function penalty(m, size) {
+    let score = 0;
+
+    // Regel 1: Reihen gleicher Farbe
+    for (let i = 0; i < size; i++) {
+      for (const isRow of [true, false]) {
+        let run = 1;
+        for (let j = 1; j < size; j++) {
+          const a = isRow ? m[i][j] : m[j][i];
+          const b = isRow ? m[i][j - 1] : m[j - 1][i];
+          if (a === b) { run++; }
+          else { if (run >= 5) score += run - 2; run = 1; }
+        }
+        if (run >= 5) score += run - 2;
+      }
+    }
+
+    // Regel 2: gleichfarbige 2x2-Bloecke
+    for (let r = 0; r < size - 1; r++) for (let c = 0; c < size - 1; c++) {
+      const v = m[r][c];
+      if (v === m[r][c + 1] && v === m[r + 1][c] && v === m[r + 1][c + 1]) score += 3;
+    }
+
+    // Regel 3: finder-aehnliche Muster
+    const p1 = [1,0,1,1,1,0,1,0,0,0,0], p2 = [0,0,0,0,1,0,1,1,1,0,1];
+    for (let i = 0; i < size; i++) for (let j = 0; j <= size - 11; j++) {
+      const row = [], col = [];
+      for (let k = 0; k < 11; k++) { row.push(m[i][j + k]); col.push(m[j + k][i]); }
+      const eq = (a, b) => a.every((x, n) => x === b[n]);
+      if (eq(row, p1) || eq(row, p2)) score += 40;
+      if (eq(col, p1) || eq(col, p2)) score += 40;
+    }
+
+    // Regel 4: Abweichung vom 50%-Anteil
+    let dark = 0;
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (m[r][c]) dark++;
+    const pct = (dark * 100) / (size * size);
+    score += Math.floor(Math.abs(pct - 50) / 5) * 10;
+
+    return score;
+  }
+
+  /* --- Hauptfunktion -------------------------------------------------------- */
+  function encode(text, stufe = "M") {
+    const bytes = Array.from(new TextEncoder().encode(text));
+    const version = pickVersion(bytes.length, stufe);
+    if (version === null) return null;
+    const words = interleave(buildBitstream(bytes, version, stufe), version, stufe);
+
+    let best = null;
+    for (let maskId = 0; maskId < 8; maskId++) {
+      const {m, reserved, size} = buildMatrix(version);
+      placeData(m, reserved, size, words, version);
+
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
+        if (!reserved[r][c] && MASKS[maskId](r, c)) m[r][c] ^= 1;
+
+      const fb = formatBits(maskId, stufe);
+      for (let i = 0; i < 15; i++) {
+        const bit = (fb >> i) & 1;
+        if (i < 6)       m[8][i] = bit;
+        else if (i < 8)  m[8][i + 1] = bit;
+        else if (i === 8) m[7][8] = bit;
+        else              m[14 - i][8] = bit;
+
+        if (i < 8)       m[size - 1 - i][8] = bit;
+        else             m[8][size - 15 + i] = bit;
+      }
+      m[size - 8][8] = 1;
+
+      const score = penalty(m, size);
+      if (!best || score < best.score) best = {m, size, score, maskId, version};
+    }
+    return best;
+  }
+
+  /* --- SVG-Ausgabe ---------------------------------------------------------- */
+  function toSVG(text, pixelSize = 220, stufe = "M", dark = "#1d1d1f", light = "#ffffff") {
+    const ergebnis = encode(text, stufe);
+    if (!ergebnis) return null;              // zu lang — kein Absturz, der Aufrufer reagiert
+    const {m, size} = ergebnis;
+    const quiet = 4;
+    const total = size + quiet * 2;
+    let path = "";
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
+      if (m[r][c]) path += `M${c + quiet} ${r + quiet}h1v1h-1z`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" `
+         + `width="${pixelSize}" height="${pixelSize}" shape-rendering="crispEdges" role="img">`
+         + `<rect width="${total}" height="${total}" fill="${light}"/>`
+         + `<path d="${path}" fill="${dark}"/></svg>`;
+  }
+
+  return {toSVG, encode, maxBytes, _internal: {EXP, LOG, gfMul, rsEncode, rsGenerator,
+          buildBitstream, interleave, BLOCKS_M, BLOCKS_L, dataCapacityBytes, formatBits, versionBits}};
+})();
+
+/* ===========================================================================
+   EINSTELLUNGEN & SCHRITTE
+   ---------------------------------------------------------------------------
+   Alles aus CONFIG lässt sich von der Lehrperson zur Laufzeit übersteuern
+   (Reiter „Einstellen“). Deshalb wird hier nichts beim Laden festgezurrt,
+   sondern bei jeder Änderung neu berechnet.
+   =========================================================================== */
+const EINST_STD = {
+  weg:             CONFIG.veroeffentlichungsweg,
+  konto:           CONFIG.klassenkonto.konto,
+  repoMuster:      CONFIG.klassenkonto.repoMuster,
+  pagesSchonAktiv: CONFIG.klassenkonto.pagesSchonAktiv,
+  werkzeuge:       null          // null = Liste aus der Datei verwenden
+};
+let EINST = { ...EINST_STD };
+
+function weg()  { return CONFIG.wege[EINST.weg] || CONFIG.wege.aus; }
+
+function werkzeugeFuerHeute() {
+  if (EINST.werkzeuge) return EINST.werkzeuge;
+  const w = CONFIG.werkzeuge;
+  return weg().nurEinzeldatei ? w.einzeldatei : [...w.projekt, ...w.einzeldatei];
+}
+
+function fuelleWeg(text, teamNr) {
+  const repo = EINST.repoMuster + (teamNr || "1");
+  return String(text)
+    .replaceAll("{konto}", EINST.konto)
+    .replaceAll("{repo}", repo)
+    .replaceAll("{adresse}", `${EINST.konto}.github.io/${repo}/`);
+}
+
+function baueSchritte() {
+  const W = weg();
+  return CONFIG.schritte.map(s => {
+    if (s.id !== "online") return s;
+    const extra = (EINST.weg === "klassenkonto" && !EINST.pagesSchonAktiv) ? W.punkteOhnePages : [];
+    return {
+      ...s,
+      ziel:   fuelleWeg(W.ziel),
+      machen: fuelleWeg(W.machen),
+      lernen: fuelleWeg(W.lernen),
+      punkte: [...W.punkte, ...extra].map(p => ({ t:fuelleWeg(p.t), s:fuelleWeg(p.s) })),
+      tipp:   fuelleWeg(W.tipp),
+      sicherheit: null,
+      lp: [
+        `Eingestellter Weg: <b>${W.name}</b>. Ändern lässt sich das im Reiter `
+        + `<b>Einstellen</b> — oder dauerhaft ganz oben in der Datei bei `
+        + `<code>veroeffentlichungsweg</code>. Die Anleitung passt sich automatisch an.`,
+        ...(EINST.weg === "klassenkonto"
+          ? [EINST.pagesSchonAktiv
+              ? "GitHub Pages ist laut Einstellung bereits eingeschaltet — die Klasse lädt nur noch "
+                + "hoch. Prüfe vorher an einem Ordner, ob die Adresse wirklich antwortet."
+              : "GitHub Pages ist laut Einstellung noch nicht eingeschaltet, deshalb steht der "
+                + "Freischalt-Schritt mit drin. Deutlich ruhiger wird es, wenn du das vorher erledigst."]
+          : []),
+        "Wer früher fertig ist, hilft einem anderen Team — das ist hier mehr wert als noch ein Feature."
+      ]
+    };
+  });
+}
+
+let SCHRITTE = baueSchritte();
+/* ===========================================================================
+   ZUSTAND
+   =========================================================================== */
+const LS = {
+  get:(k,f)=>{ try{ const v=localStorage.getItem("vc_"+k); return v===null?f:JSON.parse(v);}catch(e){return f;} },
+  set:(k,v)=>{ try{ localStorage.setItem("vc_"+k, JSON.stringify(v)); }catch(e){} },
+  del:(k)=>{ try{ localStorage.removeItem("vc_"+k); }catch(e){} }
+};
+
+const state = {
+  i:            LS.get("schritt", 0),
+  glass:        LS.get("glass", "light"),
+  contrast:     LS.get("contrast", "normal"),
+  dock:         LS.get("dock", true),
+  sound:        false,
+  baseUrl:      LS.get("baseurl", ""),
+  teams:        LS.get("teams", []),
+  notes:        LS.get("notes", ""),
+  sec:          0, secTotal:0, running:false, tick:null, deadline:0,
+  team:         1
+};
+if (state.i >= SCHRITTE.length || state.i < 0) state.i = 0;
+
+const $  = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const root = document.documentElement;
+
+/* ===========================================================================
+   TON  (kurzer Zweiklang, komplett synthetisch — keine Datei nötig)
+   =========================================================================== */
+let actx = null;
+function chime() {
+  if (!state.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    [[659.25, 0], [880, .18]].forEach(([f, d]) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(.28, actx.currentTime + d);
+      g.gain.exponentialRampToValueAtTime(.001, actx.currentTime + d + .6);
+      o.connect(g); g.connect(actx.destination);
+      o.start(actx.currentTime + d); o.stop(actx.currentTime + d + .6);
+    });
+  } catch (e) {}
+}
+
+/* ===========================================================================
+   ANSICHT: welche wird angezeigt?
+   #sus       → Schüler-Ansicht, Schritt 1
+   #sus-3     → Schüler-Ansicht, Schritt 3
+   sonst      → Lehrpersonen-Ansicht
+   =========================================================================== */
+function ansichtAusAdresse() {
+  const h = location.hash.replace(/^#/, "");
+  if (!h.startsWith("sus")) return { view:"lp", i:state.i };
+  const [kopf, nutzlast] = h.split("~");
+  const n = parseInt(kopf.split("-")[1], 10);
+  return { view:"sus", i: (isNaN(n) ? 1 : n) - 1, p: entpacke(nutzlast) };
+}
+
+function setzeAnsicht() {
+  const a = ansichtAusAdresse();
+  root.setAttribute("data-view", a.view);
+  if (a.view === "sus") {
+    // Von der Lehrperson mitgeschickte Werkzeuge übernehmen
+    if (a.p && a.p.werkzeuge) { EINST.werkzeuge = a.p.werkzeuge; SCHRITTE = baueSchritte(); }
+    // Endzeitpunkt übernehmen — sonst den zuletzt bekannten weiterlaufen lassen
+    if (a.p && a.p.e) klasseUhrSetzen(a.p.e, a.p.d);
+    else { const alt = LS.get("uhr", null); if (alt) klasseUhrSetzen(alt.e, alt.d); }
+    klasseUhrStarten();
+    const i = Math.max(0, Math.min(SCHRITTE.length - 1, a.i));
+    zeichneSus(i);
+  } else {
+    zeichneRail(); zeichneStage();
+  }
+}
+
+/* ===========================================================================
+   HILFSFUNKTIONEN FÜRS ZEICHNEN
+   =========================================================================== */
+const esc = (s) => String(s).replace(/&(?![a-z#0-9]+;)/gi, "&amp;").replace(/</g, "&lt;");
+
+function einstiegHtml(s) {
+  const zeile = (ic, kopf, text) => `
+    <div class="intro-row"><span class="intro-ic">${ic}</span>
+      <div><b>${kopf}</b><p>${text}</p></div></div>`;
+  return `<div class="intro">
+    ${zeile("▶", "Das machst du",     s.machen)}
+    ${zeile("★", "Das lernst du",     s.lernen)}
+    ${zeile("✓", "Am Ende habt ihr",  s.ziel)}
+  </div>`;
+}
+
+function punkteHtml(punkte) {
+  return `<ol class="steps">${punkte.map((p, n) => `
+    <li><span class="s-num">${n + 1}</span>
+      <div class="s-body"><strong>${p.t}</strong><span>${p.s}</span></div></li>`).join("")}</ol>`;
+}
+
+function sicherheitHtml(sec) {
+  if (!sec) return "";
+  return `<div class="safety">
+    <div class="safety-h"><span>🛡</span><span>${sec.titel}</span></div>
+    <ul>${sec.punkte.map(p => `<li>${p}</li>`).join("")}</ul>
+    <div class="ask">🙋 ${sec.frage}</div>
+  </div>`;
+}
+
+const ZUGANG = {
+  offen:      { t:"ohne Konto",       c:"chip-teal" },
+  lehrperson: { t:"über Lehrperson",  c:"chip-blue" },
+  konto:      { t:"Konto nötig",      c:"chip-rose" }
+};
+
+/* ===========================================================================
+   LEHRPERSONEN-ANSICHT ZEICHNEN
+   =========================================================================== */
+function zeichneRail() {
+  $("#rail").innerHTML = SCHRITTE.map((s, n) => `
+    <button class="rail-step ${n === state.i ? "now" : n < state.i ? "done" : ""}" data-go="${n}">
+      <span class="rail-num">${n < state.i ? "✓" : n + 1}</span><span>${s.titel}</span>
+    </button>`).join("");
+  const now = $("#rail .now");
+  if (now) now.scrollIntoView({ block:"nearest", inline:"center" });
+}
+
+function zeichneStage() {
+  const s = SCHRITTE[state.i];
+  $("#stage").innerHTML = `
+    <div class="step-head">
+      <span class="chip">Schritt ${state.i + 1} von ${SCHRITTE.length}</span>
+      ${s.sicherheit ? '<span class="chip chip-rose">🛡 mit Sicherheits-Check</span>' : ""}
+    </div>
+    <h1 class="step-title">${s.titel}</h1>
+    ${einstiegHtml(s)}
+    <div class="cols">
+      <section class="card glass-strong" style="border-radius:var(--r-md);">
+        <div class="card-h"><span>📋</span><span>So geht's</span></div>
+        ${punkteHtml(s.punkte)}
+        ${sicherheitHtml(s.sicherheit)}
+      </section>
+      <aside style="display:flex; flex-direction:column; gap:14px;">
+        <div class="card glass-strong" style="border-radius:var(--r-md);">
+          <div class="card-h"><span>💡</span><span>Dazu gedacht</span></div>
+          <div class="tip">${s.tipp}</div>
+        </div>
+        ${s.lp && s.lp.length ? `
+        <div class="lp-note">
+          <div class="lp-note-h"><span>👩‍🏫</span><span>Nur für dich — nicht auf der Schüler-Ansicht</span></div>
+          <ul>${s.lp.map(x => `<li>${x}</li>`).join("")}</ul>
+        </div>` : ""}
+        <button class="btn btn-accent" onclick="timerAufSchritt()">⏱ Timer auf Vorschlag stellen</button>
+      </aside>
+    </div>`;
+  $("#b-prev").disabled = state.i === 0;
+  $("#b-next").disabled = state.i === SCHRITTE.length - 1;
+  $("#stage").scrollTop = 0;
+  zeichneTools(); zeichneFeedback(); zeichneShare();
+}
+
+function gehZu(n, timerAnfassen = true) {
+  if (n < 0 || n >= SCHRITTE.length || n === state.i) return;
+  state.i = n; LS.set("schritt", n);
+  if (timerAnfassen && !state.running) timerAufSchritt(true);
+  zeichneRail(); zeichneStage();
+}
+
+/* ===========================================================================
+   SCHÜLER-ANSICHT ZEICHNEN  (nur lesen, nur dieser Schritt)
+   =========================================================================== */
+function zeichneSus(i) {
+  const s = SCHRITTE[i];
+  const tools = werkzeugeFuerHeute();
+  const zeigeTools = s.id === "tool" || s.id === "bau1" || s.id === "bau2";
+
+  $("#sus-sub").textContent = `Schritt ${i + 1} von ${SCHRITTE.length}`;
+  $("#sus-inner").className = "glass cs-pop";
+  $("#sus-inner").innerHTML = `
+    <h1 class="step-title">${s.titel}</h1>
+    ${einstiegHtml(s)}
+    ${punkteHtml(s.punkte)}
+    ${sicherheitHtml(s.sicherheit)}
+    <div class="tip">${s.tipp}</div>
+    ${zeigeTools ? `
+      <h2 style="font-size:.72rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
+                 color:var(--ink-faint); margin:24px 0 10px;">Werkzeuge zum Antippen</h2>
+      <div class="sus-links">
+        ${tools.map(t => `
+          <a class="sus-link" href="${t.url}" target="_blank" rel="noopener noreferrer">
+            <div><b>${t.name}</b><small>${t.text}</small></div>
+            <span class="go">↗</span>
+          </a>`).join("")}
+      </div>` : ""}`;
+
+  $("#sus-jump").innerHTML = SCHRITTE.map((s2, n) => `
+    <button class="jump ${n === i ? "now" : ""}" data-sus="${n}" title="${s2.titel}">${n + 1}</button>`).join("");
+  $("#sus-body").scrollTop = 0;
+}
+
+/* ===========================================================================
+   WERKZEUGKASTEN
+   =========================================================================== */
+function zeichneTools() {
+  const tools = werkzeugeFuerHeute();
+  $("#tools-why").innerHTML = weg().nurEinzeldatei
+    ? `Weg <b>${weg().name}</b> braucht am Schluss eine einzelne <code>index.html</code>. `
+      + `Darum stehen hier nur Werkzeuge, die genau das liefern — sonst passt der letzte Schritt nicht.`
+    : `Weg <b>${weg().name}</b>: Jedes Team veröffentlicht über sein eigenes Werkzeug. `
+      + `Darum sind auch Werkzeuge dabei, die ganze Projekte bauen.`;
+
+  $("#tools-out").innerHTML = tools.map((t, n) => {
+    const z = ZUGANG[t.zugang] || ZUGANG.konto;
+    return `<div class="tool">
+      <div class="tool-h">
+        <b>${t.name}</b>
+        <span class="chip ${z.c}">${z.t}</span>
+        ${t.zweck === "testen" ? '<span class="chip chip-blue">zum Testen</span>' : ""}
+      </div>
+      <p>${t.text}</p>
+      <div style="display:flex; gap:6px;">
+        <a class="btn btn-sm" href="${t.url}" target="_blank" rel="noopener noreferrer">Öffnen ↗</a>
+        <button class="btn btn-sm" data-qr="${n}">📱 QR</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function zeichneFeedback() {
+  const spaet = state.i >= SCHRITTE.findIndex(s => s.id === "check");
+  const qs = spaet ? CONFIG.feedbackfragen.schluss : CONFIG.feedbackfragen.zwischen;
+  $("#fb-badge").textContent = spaet ? "Schlussrunde" : "Zwischenrunde";
+  $("#fb-out").innerHTML = qs.map((q, n) => `
+    <div class="q"><p>${q}</p>
+      <label><input type="checkbox" data-fb="${n}"> besprochen</label></div>`).join("");
+}
+
+function susAdresse(i, mitWerkzeugen = true) {
+  const roh = (state.baseUrl || "").trim();
+  if (!roh) return null;
+  const anker = `#sus-${(i ?? state.i) + 1}` + packe(mitWerkzeugen);
+  // Adresse aufraeumen: Anker und Parameter weg, fehlenden Schraegstrich ergaenzen,
+  // aber einen Dateinamen wie index.html stehen lassen.
+  for (const versuch of [roh, "https://" + roh.replace(/^\/+/, "")]) {
+    try {
+      const u = new URL(versuch);
+      u.hash = ""; u.search = "";
+      if (!/\.[a-z0-9]+$/i.test(u.pathname)) u.pathname = u.pathname.replace(/\/+$/, "") + "/";
+      return u.toString() + anker;
+    } catch (e) { /* naechster Versuch */ }
+  }
+  return roh.replace(/#.*$/, "") + anker;
+}
+
+function zeichneShare() {
+  const box = $("#share-qr"), lbl = $("#share-url"), warn = $("#share-warn");
+  warn.hidden = true;
+  if (!state.baseUrl.trim()) {
+    box.innerHTML = `<p class="hint" style="text-align:center; margin:0; color:#86868b;">
+      Trag unten die Adresse ein, unter der die Seite erreichbar ist.</p>`;
+    lbl.textContent = "";
+    return;
+  }
+  // Erst mit allem versuchen; wird der Code zu gross, die Werkzeugliste weglassen.
+  let url = susAdresse(), svg = QRCode.toSVG(url, 240, "L"), gekuerzt = false;
+  if (!svg) {
+    url = susAdresse(undefined, false); svg = QRCode.toSVG(url, 240, "L"); gekuerzt = true;
+  }
+  if (!svg) {
+    box.innerHTML = `<p class="hint" style="text-align:center; margin:0;">
+      Die Adresse ist zu lang für einen scannbaren Code. Kürze sie.</p>`;
+    lbl.textContent = url; return;
+  }
+  box.innerHTML = svg;
+  lbl.textContent = url;
+  if (gekuerzt) {
+    warn.hidden = false;
+    warn.innerHTML = `⚠️ <b>Die Werkzeugliste passt nicht in den Code.</b> Schritt und Timer
+      kommen an, die angepassten Werkzeuge nicht. Übernimm sie mit dem Knopf
+      <b>„Als Textblock kopieren“</b> im Reiter <b>Einstellen</b> fest in die Datei —
+      dann brauchen sie keinen Platz im Code.`;
+  }
+}
+
+/* ===========================================================================
+   TIMER
+   =========================================================================== */
+function zeigeTimer() {
+  const m = Math.floor(state.sec / 60), s = state.sec % 60;
+  $("#timer-val").textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  const box = $("#timer-box"), lbl = $("#timer-lbl");
+  box.classList.remove("warn", "over");
+  if (state.sec === 0 && state.secTotal > 0) { box.classList.add("over"); lbl.textContent = "Zeit ist um"; }
+  else if (state.sec <= 120)                 { box.classList.add("warn"); lbl.textContent = "Letzte Minuten"; }
+  else                                        { lbl.textContent = state.running ? "läuft" : "pausiert"; }
+}
+function timerStart() {
+  if (state.running || state.sec === 0) return;
+  state.running = true;
+  state.deadline = Date.now() + state.sec * 1000;   // für die Weitergabe an die Klasse
+  $("#t-go").textContent = "⏸ Pause"; $("#t-go").classList.remove("btn-solid");
+  state.tick = setInterval(() => {
+    state.sec = Math.max(0, state.sec - 1);
+    zeigeTimer();
+    if (state.sec === 0) { timerStop(); chime(); }
+  }, 1000);
+  zeigeTimer(); zeichneShare();
+}
+function timerStop() {
+  state.running = false; state.deadline = 0; clearInterval(state.tick);
+  $("#t-go").textContent = "▶ Start"; $("#t-go").classList.add("btn-solid");
+  zeigeTimer(); zeichneShare();
+}
+function timerAufSchritt(still) {
+  if (!still) timerStop();
+  state.secTotal = (SCHRITTE[state.i].timerMin || 10) * 60;
+  state.sec = state.secTotal;
+  zeigeTimer();
+}
+function timerSetz(min) { timerStop(); state.secTotal = min * 60; state.sec = state.secTotal; zeigeTimer(); }
+
+/* ===========================================================================
+   TEAMS AUSLOSEN
+   =========================================================================== */
+function loseAus() {
+  const roh = $("#names").value.trim();
+  if (!roh) { alert("Trag zuerst die Namen ein."); return; }
+  const namen = roh.split(/[\n,;]+/).map(n => n.trim()).filter(Boolean);
+  if (namen.length < 2) { alert("Es braucht mindestens zwei Namen."); return; }
+
+  for (let i = namen.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [namen[i], namen[j]] = [namen[j], namen[i]];
+  }
+
+  const modus = $("#gmode").value;
+  const zahl  = Math.max(1, parseInt($("#gnum").value, 10) || 3);
+  let anzahl  = modus === "size" ? Math.ceil(namen.length / zahl) : zahl;
+  anzahl = Math.max(1, Math.min(anzahl, namen.length));   // keine leeren Teams
+
+  const teams = Array.from({ length: anzahl }, (_, i) => ({ name:`Team ${i + 1}`, mit:[] }));
+  namen.forEach((p, i) => teams[i % anzahl].mit.push({
+    name: p,
+    rolle: $("#groles").checked ? CONFIG.rollen[teams[i % anzahl].mit.length % CONFIG.rollen.length].name : null
+  }));
+
+  state.teams = teams; LS.set("teams", teams); zeichneTeams();
+}
+
+function zeichneTeams() {
+  const el = $("#teams-out");
+  if (!state.teams.length) {
+    el.innerHTML = `<p class="hint" style="text-align:center;">Noch nichts ausgelost.</p>`; return;
+  }
+  el.innerHTML = state.teams.map(t => `
+    <div class="team">
+      <div class="team-h"><span>${esc(t.name)}</span><span>${t.mit.length}</span></div>
+      ${t.mit.map(m => `<div class="team-m"><span>${esc(m.name)}</span>
+        ${m.rolle ? `<span>${m.rolle}</span>` : ""}</div>`).join("")}
+    </div>`).join("");
+}
+
+/* ===========================================================================
+   HANDOUT ZUM DRUCKEN
+   =========================================================================== */
+function druckeHandout() {
+  const tools = werkzeugeFuerHeute();
+  $("#handout").innerHTML = `
+    <h1>${CONFIG.titel} — ${CONFIG.untertitel}</h1>
+    <p class="sub">Ablauf in ${SCHRITTE.length} Schritten · Veröffentlichung: ${weg().name}</p>
+
+    <h2>Übersicht</h2>
+    <table><thead><tr><th style="width:26px;">#</th><th style="width:150px;">Schritt</th>
+      <th>Das machst du</th></tr></thead><tbody>
+      ${SCHRITTE.map((s, n) => `<tr><td>${n + 1}</td><td><b>${s.titel}</b></td><td>${s.machen}</td></tr>`).join("")}
+    </tbody></table>
+
+    <h2>Die Schritte im Detail</h2>
+    ${SCHRITTE.map((s, n) => `
+      <div class="ho-step">
+        <h3>${n + 1}. ${s.titel}</h3>
+        <p class="ho-meta"><b>Das machst du:</b> ${s.machen}<br>
+           <b>Das lernst du:</b> ${s.lernen}<br>
+           <b>Am Ende habt ihr:</b> ${s.ziel}</p>
+        <ul>${s.punkte.map(p => `<li><b>${p.t}</b> — ${p.s.replace(/<[^>]+>/g, "")}</li>`).join("")}</ul>
+        ${s.sicherheit ? `<div class="ho-safe"><b>Sicherheits-Check: ${s.sicherheit.titel}</b>
+          <ul>${s.sicherheit.punkte.map(x => `<li>${x.replace(/<[^>]+>/g, "")}</li>`).join("")}</ul>
+          <p>${s.sicherheit.frage}</p></div>` : ""}
+      </div>`).join("")}
+
+    <h2>Werkzeuge</h2>
+    <ul>${tools.map(t => `<li><b>${t.name}</b> (${(ZUGANG[t.zugang] || ZUGANG.konto).t}) —
+      ${t.text} · ${t.url}</li>`).join("")}</ul>
+
+    <h2>Leitfragen fürs Feedback</h2>
+    <p><b>Zwischenrunde</b></p>
+    <ul>${CONFIG.feedbackfragen.zwischen.map(q => `<li>${q}</li>`).join("")}</ul>
+    <p><b>Schlussrunde</b></p>
+    <ul>${CONFIG.feedbackfragen.schluss.map(q => `<li>${q}</li>`).join("")}</ul>`;
+  window.print();
+}
+
+/* ===========================================================================
+   WEITERGABE AN DIE KLASSE
+   ---------------------------------------------------------------------------
+   Es gibt keinen Server. Übertragen wird trotzdem etwas — über die Adresse
+   im QR-Code. Darin stecken drei Dinge:
+
+     der Schritt        #sus-3
+     der Endzeitpunkt   damit jedes Gerät denselben Countdown rechnet
+     die Werkzeuge      falls die Lehrperson sie angepasst hat
+
+   Beim Timer ist der Trick, dass die Uhren aller Geräte ohnehin synchron
+   laufen. Übertragen wird deshalb nur EINE Zahl — wann Schluss ist. Den
+   Balken und die Einblendungen rechnet danach jedes Tablet für sich aus,
+   ohne jede weitere Verbindung.
+   =========================================================================== */
+/* Kurz halten: Base64 bläht um ein Drittel auf, und jedes Zeichen zählt,
+   weil der QR-Code vom Beamer aus noch scannbar bleiben muss. Darum ein
+   schlankes Trennzeichen-Format aus Zeichen, die in einer Adresse erlaubt
+   sind: "." zwischen Feldern, "*" zwischen Werkzeugen, "!" innerhalb. */
+const Z_KURZ = { offen:"o", lehrperson:"l", konto:"k" };
+const Z_LANG = { o:"offen", l:"lehrperson", k:"konto" };
+
+function sicher(t) {
+  return encodeURIComponent(String(t ?? ""))
+    .replace(/[!~*'()]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+}
+const zurueck = (t) => { try { return decodeURIComponent(t); } catch (e) { return t; } };
+
+function packe(mitWerkzeugen = true) {
+  const teile = [];
+  if (state.deadline && state.running) {
+    teile.push("e." + Math.round(state.deadline / 1000), "d." + state.secTotal);
+  }
+  if (mitWerkzeugen && EINST.werkzeuge && EINST.werkzeuge.length) {
+    teile.push("w." + EINST.werkzeuge.map(t =>
+      [sicher(t.name),
+       sicher(String(t.url || "").replace(/^https?:\/\//, "")),
+       Z_KURZ[t.zugang] || "k"].join("!")
+    ).join("*"));
+  }
+  return teile.length ? "~" + teile.join(".") : "";
+}
+
+function entpacke(roh) {
+  if (!roh) return null;
+  const p = {};
+  const wStelle = roh.indexOf("w.");
+  const kopf = (wStelle >= 0 ? roh.slice(0, wStelle) : roh).split(".");
+  for (let i = 0; i < kopf.length - 1; i++) {
+    if (kopf[i] === "e") p.e = parseInt(kopf[i + 1], 10);
+    if (kopf[i] === "d") p.d = parseInt(kopf[i + 1], 10);
+  }
+  if (!p.e || isNaN(p.e)) delete p.e;
+  if (!p.d || isNaN(p.d)) delete p.d;
+  if (wStelle >= 0) {
+    p.werkzeuge = roh.slice(wStelle + 2).split("*").map(eintrag => {
+      const [name, url, z] = eintrag.split("!");
+      if (!name) return null;
+      return { name: zurueck(name),
+               url: "https://" + zurueck(url || ""),
+               text: "", zugang: Z_LANG[z] || "konto", zweck: "bauen" };
+    }).filter(Boolean);
+    if (!p.werkzeuge.length) delete p.werkzeuge;
+  }
+  return Object.keys(p).length ? p : null;
+}
+
+/* ===========================================================================
+   COUNTDOWN IN DER SCHÜLER-ANSICHT
+   =========================================================================== */
+const klasse = { ende:0, dauer:0, tick:null, gezeigt:{} };
+
+function klasseUhrSetzen(endeSek, dauerSek) {
+  if (!endeSek || !dauerSek) return;
+  const neu = endeSek !== klasse.ende;
+  klasse.ende = endeSek; klasse.dauer = dauerSek;
+  if (neu) klasse.gezeigt = {};
+  LS.set("uhr", { e:endeSek, d:dauerSek });
+  klasseUhrZeichnen();
+}
+
+function klasseUhrZeichnen() {
+  const box = $("#sus-clock");
+  if (!klasse.ende || !klasse.dauer) { box.hidden = true; return; }
+  box.hidden = false;
+
+  const rest = Math.max(0, Math.round(klasse.ende - Date.now() / 1000));
+  const m = Math.floor(rest / 60), sek = rest % 60;
+  $("#clock-val").textContent = `${String(m).padStart(2,"0")}:${String(sek).padStart(2,"0")}`;
+  $("#clock-fill").style.width = Math.max(0, Math.min(100, (rest / klasse.dauer) * 100)) + "%";
+
+  box.classList.remove("half", "last", "over");
+  if (rest === 0) {
+    box.classList.add("over"); $("#clock-lbl").textContent = "Zeit ist um";
+    einblenden("over", "🔔", "Die Zeit für diesen Schritt ist um. Hört auf zu bauen und hört zu.");
+  } else if (rest <= 120) {
+    box.classList.add("last"); $("#clock-lbl").textContent = "Gleich vorbei";
+    einblenden("last", "⏰", "Noch zwei Minuten. Fangt nichts Neues mehr an — sichert, was ihr habt.");
+  } else {
+    $("#clock-lbl").textContent = "Zeit für diesen Schritt";
+    if (rest <= klasse.dauer / 2) {
+      box.classList.add("half");
+      einblenden("half", "⏳", "Halbzeit. Schafft ihr das, was ihr euch vorgenommen habt?");
+    }
+  }
+}
+
+function einblenden(schluessel, icon, text) {
+  if (klasse.gezeigt[schluessel]) return;
+  klasse.gezeigt[schluessel] = true;
+  $("#toast-ic").textContent = icon;
+  $("#toast-txt").textContent = text;
+  $("#sus-toast").hidden = false;
+  clearTimeout(einblenden._t);
+  einblenden._t = setTimeout(() => { $("#sus-toast").hidden = true; }, 7000);
+}
+
+function klasseUhrStarten() {
+  clearInterval(klasse.tick);
+  klasse.tick = setInterval(klasseUhrZeichnen, 500);
+  klasseUhrZeichnen();
+}
+
+/* ===========================================================================
+   EINSTELLUNGEN DER LEHRPERSON
+   =========================================================================== */
+function einstLaden() {
+  const g = LS.get("einst", null);
+  if (g && typeof g === "object") EINST = { ...EINST_STD, ...g };
+}
+function einstSichern() { LS.set("einst", EINST); }
+
+function einstAnwenden() {
+  einstSichern();
+  SCHRITTE = baueSchritte();
+  if (state.i >= SCHRITTE.length) state.i = SCHRITTE.length - 1;
+  zeichneRail(); zeichneStage();
+  zeichneEinstellungen();
+}
+
+function zeichneEinstellungen() {
+  $("#e-weg").value   = EINST.weg;
+  $("#e-konto").value = EINST.konto;
+  $("#e-repo").value  = EINST.repoMuster;
+  $("#e-pages").checked = !!EINST.pagesSchonAktiv;
+  $("#e-konto-block").hidden = EINST.weg !== "klassenkonto";
+
+  const liste = werkzeugeFuerHeute();
+  $("#e-tools").innerHTML = liste.map((t, n) => `
+    <div class="e-tool">
+      <div class="e-head">
+        <input type="text" data-t="${n}" data-f="name" value="${escAttr(t.name)}" placeholder="Name">
+        <button class="btn btn-sm btn-ghost" data-del="${n}" title="Entfernen">✕</button>
+      </div>
+      <input type="text" data-t="${n}" data-f="url" value="${escAttr(t.url)}" placeholder="https://…">
+      <input type="text" data-t="${n}" data-f="text" value="${escAttr(t.text)}" placeholder="Ein Satz zur Erklärung">
+      <select data-t="${n}" data-f="zugang">
+        <option value="offen"${t.zugang==="offen"?" selected":""}>ohne Konto</option>
+        <option value="lehrperson"${t.zugang==="lehrperson"?" selected":""}>über Lehrperson</option>
+        <option value="konto"${t.zugang==="konto"?" selected":""}>Konto nötig</option>
+      </select>
+    </div>`).join("");
+}
+
+const escAttr = (v) => String(v ?? "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+
+function werkzeugeUebernehmen() {
+  if (!EINST.werkzeuge) EINST.werkzeuge = werkzeugeFuerHeute().map(t => ({ ...t }));
+}
+
+function einstTextblock() {
+  const zeilen = werkzeugeFuerHeute().map(t =>
+    `      { name:${JSON.stringify(t.name)}, url:${JSON.stringify(t.url)}, `
+    + `zugang:${JSON.stringify(t.zugang || "konto")}, zweck:${JSON.stringify(t.zweck || "bauen")},\n`
+    + `        text:${JSON.stringify(t.text || "")} }`).join(",\n");
+  return `    einzeldatei: [\n${zeilen}\n    ],`;
+}
+
+/* ===========================================================================
+   EREIGNISSE
+   =========================================================================== */
+function schalte(attr, wert, key) {
+  root.setAttribute(attr, wert); LS.set(key, wert);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  einstLaden();
+  SCHRITTE = baueSchritte();
+  root.setAttribute("data-glass", state.glass);
+  root.setAttribute("data-contrast", state.contrast);
+  $("#b-contrast").setAttribute("aria-pressed", state.contrast === "boost");
+  $("#b-glass").textContent = state.glass === "dark" ? "☀" : "☾";
+  $("#brand-title").textContent = CONFIG.titel;
+  $("#brand-sub").textContent = CONFIG.untertitel;
+  document.title = `${CONFIG.titel} — ${CONFIG.untertitel}`;
+  if (!state.dock) $("#dock").classList.add("hidden");
+  $("#notes").value = state.notes;
+  // Läuft die Seite über eine echte Adresse, trägt sie sich selbst ein —
+  // spart das Abtippen und damit die häufigste Fehlerquelle vor der Klasse.
+  if (!state.baseUrl && location.protocol.indexOf("http") === 0) {
+    state.baseUrl = location.origin + location.pathname;
+    LS.set("baseurl", state.baseUrl);
+  }
+  $("#base-url").value = state.baseUrl;
+
+  /* Kopfleiste */
+  $("#b-glass").onclick = () => {
+    state.glass = state.glass === "dark" ? "light" : "dark";
+    schalte("data-glass", state.glass, "glass");
+    $("#b-glass").textContent = state.glass === "dark" ? "☀" : "☾";
+    zeichneShare();
+  };
+  $("#b-contrast").onclick = () => {
+    state.contrast = state.contrast === "boost" ? "normal" : "boost";
+    schalte("data-contrast", state.contrast, "contrast");
+    $("#b-contrast").setAttribute("aria-pressed", state.contrast === "boost");
+  };
+  $("#b-sound").onclick = () => {
+    state.sound = !state.sound;
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch(e){}
+    $("#b-sound").textContent = state.sound ? "🔔" : "🔕";
+    $("#b-sound").setAttribute("aria-pressed", state.sound);
+    $("#sound-txt").textContent = state.sound ? "an" : "aus";
+  };
+  $("#b-print").onclick = druckeHandout;
+  $("#b-full").onclick = vollbild;
+  $("#b-sus").onclick = () => {
+    const u = susAdresse();
+    if (u) { window.open(u, "_blank", "noopener"); return; }
+    const neu = new URL(location.href); neu.hash = `sus-${state.i + 1}`;
+    window.open(neu.toString(), "_blank", "noopener");
+  };
+
+  const dockAuf = () => {
+    $("#dock").classList.toggle("hidden");
+    state.dock = !$("#dock").classList.contains("hidden");
+    LS.set("dock", state.dock);
+  };
+  $("#b-dock").onclick = dockAuf;
+  $("#b-dock-x").onclick = dockAuf;
+
+  /* Reiter im Werkzeugkasten */
+  $$("[data-pane]").forEach(b => b.onclick = () => {
+    $$("[data-pane]").forEach(x => x.classList.remove("is-on"));
+    b.classList.add("is-on");
+    $$(".pane").forEach(p => p.classList.remove("on"));
+    $("#p-" + b.dataset.pane).classList.add("on");
+  });
+
+  /* Navigation */
+  $("#b-prev").onclick = () => gehZu(state.i - 1);
+  $("#b-next").onclick = () => gehZu(state.i + 1);
+  $("#rail").onclick = (e) => {
+    const b = e.target.closest("[data-go]");
+    if (b) gehZu(parseInt(b.dataset.go, 10));
+  };
+  $("#sus-jump").onclick = (e) => {
+    const b = e.target.closest("[data-sus]");
+    if (b) {
+      const nutz = (location.hash.split("~")[1] || "");
+      location.hash = `sus-${parseInt(b.dataset.sus, 10) + 1}` + (nutz ? "~" + nutz : "");
+    }
+  };
+
+  /* Timer */
+  $("#t-go").onclick     = () => state.running ? timerStop() : timerStart();
+  $("#t-reset").onclick  = () => { timerStop(); state.sec = state.secTotal; zeigeTimer(); };
+  $("#t-m1").onclick     = () => { state.sec = Math.max(0, state.sec - 60); zeigeTimer(); };
+  $("#t-p1").onclick     = () => { state.sec += 60; zeigeTimer(); };
+  $("#t-p5").onclick     = () => { state.sec += 300; zeigeTimer(); };
+  $("#t-preset").onclick = () => timerAufSchritt();
+  $("#r-pitch").onclick  = () => { timerSetz(3); timerStart(); };
+  $("#r-fb").onclick     = () => { timerSetz(4); timerStart(); };
+  $("#r-next").onclick   = () => { state.team++; $("#r-team").textContent = `Team ${state.team}`; timerSetz(3); };
+  $("#r-reset").onclick  = () => { state.team = 1; $("#r-team").textContent = "Team 1"; timerSetz(3); };
+
+  /* Teams */
+  $("#g-go").onclick  = loseAus;
+  $("#g-big").onclick = () => {
+    if (!state.teams.length) { alert("Zuerst auslosen."); return; }
+    $("#teams-big").innerHTML = state.teams.map(t => `
+      <div class="team"><div class="team-h"><span>${esc(t.name)}</span></div>
+        ${t.mit.map(m => `<div class="team-m"><span>${esc(m.name)}</span>
+          ${m.rolle ? `<span>${m.rolle}</span>` : ""}</div>`).join("")}</div>`).join("");
+    $("#sheet-teams").classList.add("on");
+  };
+
+  /* Tools: QR-Code */
+  $("#tools-out").onclick = (e) => {
+    const b = e.target.closest("[data-qr]");
+    if (!b) return;
+    const t = werkzeugeFuerHeute()[parseInt(b.dataset.qr, 10)];
+    $("#qr-title").textContent = t.name;
+    $("#qr-out").innerHTML = QRCode.toSVG(t.url, 250) || "";
+    $("#qr-url").textContent = t.url;
+    $("#sheet-qr").classList.add("on");
+  };
+
+  /* Teilen */
+  $("#base-url").oninput = (e) => { state.baseUrl = e.target.value; LS.set("baseurl", state.baseUrl); zeichneShare(); };
+  $("#share-big").onclick = () => {
+    const u = susAdresse();
+    if (!u) { alert("Trag zuerst die Adresse der Seite ein."); return; }
+    $("#qr-title").textContent = `Schritt ${state.i + 1} — ${SCHRITTE[state.i].titel}`;
+    $("#qr-out").innerHTML = QRCode.toSVG(u, 380, "L")
+                          || QRCode.toSVG(susAdresse(undefined, false), 380, "L") || "";
+    $("#qr-url").textContent = u;
+    $("#sheet-qr").classList.add("on");
+  };
+
+  /* Einstellen */
+  $("#e-weg").onchange = (e) => {
+    EINST.weg = e.target.value;
+    EINST.werkzeuge = null;          // Liste zum neuen Weg passend neu aufbauen
+    einstAnwenden(); zeichneTools(); zeichneShare();
+  };
+  ["konto","repo","pages"].forEach(k => {
+    const el = $("#e-" + k);
+    el.oninput = el.onchange = () => {
+      EINST.konto      = $("#e-konto").value.trim() || EINST_STD.konto;
+      EINST.repoMuster = $("#e-repo").value.trim()  || EINST_STD.repoMuster;
+      EINST.pagesSchonAktiv = $("#e-pages").checked;
+      einstSichern(); SCHRITTE = baueSchritte(); zeichneStage();
+    };
+  });
+
+  $("#e-tools").oninput = $("#e-tools").onchange = (e) => {
+    const f = e.target.dataset.f, n = parseInt(e.target.dataset.t, 10);
+    if (!f || isNaN(n)) return;
+    werkzeugeUebernehmen();
+    EINST.werkzeuge[n][f] = e.target.value;
+    einstSichern(); zeichneTools(); zeichneShare();
+  };
+  $("#e-tools").onclick = (e) => {
+    const b = e.target.closest("[data-del]");
+    if (!b) return;
+    werkzeugeUebernehmen();
+    EINST.werkzeuge.splice(parseInt(b.dataset.del, 10), 1);
+    einstSichern(); zeichneEinstellungen(); zeichneTools(); zeichneShare();
+  };
+  $("#e-add-tool").onclick = () => {
+    werkzeugeUebernehmen();
+    EINST.werkzeuge.push({ name:"Neues Werkzeug", url:"https://", text:"", zugang:"konto", zweck:"bauen" });
+    einstSichern(); zeichneEinstellungen(); zeichneTools(); zeichneShare();
+  };
+  $("#e-reset-tools").onclick = () => {
+    EINST.werkzeuge = null;
+    einstSichern(); zeichneEinstellungen(); zeichneTools(); zeichneShare();
+  };
+  $("#e-copy").onclick = async () => {
+    const txt = einstTextblock();
+    try { await navigator.clipboard.writeText(txt); alert("Kopiert. In der Datei bei \"einzeldatei:\" einsetzen."); }
+    catch (e) { prompt("Kopieren mit Cmd+C:", txt); }
+  };
+
+  /* Notizen */
+  $("#notes").oninput = (e) => { state.notes = e.target.value; LS.set("notes", state.notes); };
+  $("#n-clear").onclick = () => {
+    if (confirm("Notizen wirklich löschen?")) { $("#notes").value = ""; state.notes = ""; LS.del("notes"); }
+  };
+
+  /* Modale schliessen */
+  $$(".sheet").forEach(sh => sh.onclick = (e) => {
+    if (e.target === sh || e.target.closest("[data-close]")) sh.classList.remove("on");
+  });
+
+  /* Tastatur — nur in der Lehrpersonen-Ansicht, nie mit Befehlstaste */
+  window.addEventListener("keydown", (e) => {
+    if (root.getAttribute("data-view") !== "lp") return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
+
+    switch (e.key) {
+      case "ArrowRight": case "PageDown": gehZu(state.i + 1); break;
+      case "ArrowLeft":  case "PageUp":   gehZu(state.i - 1); break;
+      case " ":          e.preventDefault(); gehZu(state.i + 1); break;
+      case "Escape":     $$(".sheet").forEach(s => s.classList.remove("on")); break;
+      default:
+        const k = e.key.toLowerCase();
+        if (k === "t") { e.preventDefault(); state.running ? timerStop() : timerStart(); }
+        else if (k === "w") dockAuf();
+        else if (k === "f") vollbild();
+    }
+  });
+
+  window.addEventListener("hashchange", setzeAnsicht);
+
+  /* Start */
+  timerAufSchritt(true);
+  zeichneTeams();
+  zeichneEinstellungen();
+  setzeAnsicht();
+});
+
+function vollbild() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  else document.exitFullscreen().catch(() => {});
+}
+</script>
+</body>
+</html>
