@@ -1565,17 +1565,26 @@ const QRCode = (function () {
   }
 
   /* --- SVG-Ausgabe ---------------------------------------------------------- */
-  function toSVG(text, pixelSize = 220, stufe = "M", dark = "#1d1d1f", light = "#ffffff") {
+  function toSVG(text, pixelSize = 220, stufe = "M", dark = "#000000", light = "#ffffff") {
     const ergebnis = encode(text, stufe);
     if (!ergebnis) return null;              // zu lang — kein Absturz, der Aufrufer reagiert
     const {m, size} = ergebnis;
     const quiet = 4;
     const total = size + quiet * 2;
+
+    // Kantenlaenge auf ein ganzzahliges Vielfaches der Modulzahl bringen.
+    // Bei krummen Werten (250 / 33 = 7,58 Pixel) rundet der Browser jedes
+    // Modul einzeln; Reihen werden dann ungleich breit, was manche Scanner
+    // aus dem Tritt bringt. Ganzzahlig ist jedes Modul exakt gleich gross.
+    const proModul = Math.max(2, Math.round(pixelSize / total));
+    const kante = proModul * total;
+
     let path = "";
     for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
       if (m[r][c]) path += `M${c + quiet} ${r + quiet}h1v1h-1z`;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" `
-         + `width="${pixelSize}" height="${pixelSize}" shape-rendering="crispEdges" role="img">`
+         + `width="${kante}" height="${kante}" shape-rendering="crispEdges" role="img" `
+         + `aria-label="QR-Code">`
          + `<rect width="${total}" height="${total}" fill="${light}"/>`
          + `<path d="${path}" fill="${dark}"/></svg>`;
   }
@@ -1666,6 +1675,7 @@ const state = {
   teams:        LS.get("teams", []),
   notes:        LS.get("notes", ""),
   sec:          0, secTotal:0, running:false, tick:null, deadline:0,
+  timers:       {},        // je Schritt ein eigener Stand: { rest, dauer }
   team:         1
 };
 if (state.i >= SCHRITTE.length || state.i < 0) state.i = 0;
@@ -1712,14 +1722,19 @@ function setzeAnsicht() {
   const a = ansichtAusAdresse();
   root.setAttribute("data-view", a.view);
   if (a.view === "sus") {
+    const i0 = Math.max(0, Math.min(SCHRITTE.length - 1, a.i));
     // Von der Lehrperson mitgeschickte Werkzeuge übernehmen
     if (a.p && a.p.werkzeuge) { EINST.werkzeuge = a.p.werkzeuge; SCHRITTE = baueSchritte(); }
     // Endzeitpunkt übernehmen — sonst den zuletzt bekannten weiterlaufen lassen
     if (a.p && a.p.e) klasseUhrSetzen(a.p.e, a.p.d);
-    else { const alt = LS.get("uhr", null); if (alt) klasseUhrSetzen(alt.e, alt.d); }
+    else {
+      const u = LS.get("uhr", null);
+      // Nur übernehmen, wenn der Stand zu DIESEM Schritt gehört
+      if (u && u.e && (u.s === undefined || u.s === i0)) klasseUhrSetzen(u.e, u.d);
+      else uhrAus();
+    }
     klasseUhrStarten();
-    const i = Math.max(0, Math.min(SCHRITTE.length - 1, a.i));
-    zeichneSus(i);
+    zeichneSus(i0);
   } else {
     zeichneRail(); zeichneStage();
   }
@@ -1808,10 +1823,13 @@ function zeichneStage() {
   zeichneTools(); zeichneFeedback(); zeichneShare();
 }
 
-function gehZu(n, timerAnfassen = true) {
+function gehZu(n) {
   if (n < 0 || n >= SCHRITTE.length || n === state.i) return;
+  timerStop();          // der Timer gehört zum Schritt, also hier anhalten
+  timerSichern();       // Stand merken, falls du zurückkommst
   state.i = n; LS.set("schritt", n);
-  if (timerAnfassen && !state.running) timerAufSchritt(true);
+  timerLaden(n);
+  zeigeTimer(); uhrSenden();
   zeichneRail(); zeichneStage();
 }
 
@@ -1943,35 +1961,83 @@ function zeigeTimer() {
   else if (state.sec <= 120)                 { box.classList.add("warn"); lbl.textContent = "Letzte Minuten"; }
   else                                        { lbl.textContent = state.running ? "läuft" : "pausiert"; }
 }
+/* Jeder Schritt hat seinen eigenen Timer. Beim Wechsel wird der alte Stand
+   gesichert und der neue geladen — kommst du zurück, läuft er dort weiter,
+   wo du ihn verlassen hast.
+
+   Während der Timer läuft, ist NICHT die Restzeit massgeblich, sondern der
+   Endzeitpunkt. Nur so bleibt die Anzeige auf allen Geräten gleich, auch
+   wenn ein Tablet zwischendurch schläft oder der Tab im Hintergrund war. */
+
+function timerSichern() {
+  state.timers[state.i] = { rest: state.sec, dauer: state.secTotal };
+}
+
+function timerLaden(i) {
+  const t = state.timers[i];
+  state.secTotal = t ? t.dauer : (SCHRITTE[i].timerMin || 10) * 60;
+  state.sec      = t ? t.rest  : state.secTotal;
+}
+
+/* Bei JEDER Änderung aufrufen: legt den Stand für andere Tabs ab und
+   zeichnet den QR-Code neu, damit er nie eine veraltete Zeit enthält. */
+function uhrSenden() {
+  if (root.getAttribute("data-view") === "sus") return;   // nur die Lehrperson sendet
+  LS.set("uhr", state.running && state.deadline
+    ? { s: state.i, e: Math.round(state.deadline / 1000), d: state.secTotal }
+    : { s: state.i, e: 0, d: 0 });
+  zeichneShare();
+}
+
 function timerStart() {
   if (state.running || state.sec === 0) return;
   state.running = true;
-  state.deadline = Date.now() + state.sec * 1000;   // für die Weitergabe an die Klasse
-  // Ablegen, damit eine Schüler-Ansicht auf DEMSELBEN Gerät (zweiter Tab,
-  // zweiter Bildschirm) sofort mitbekommt, dass der Timer läuft. Auf fremden
-  // Geräten geht das nicht — dort führt der Weg über den QR-Code.
-  LS.set("uhr", { e: Math.round(state.deadline / 1000), d: state.secTotal });
+  state.deadline = Date.now() + state.sec * 1000;
   $("#t-go").textContent = "⏸ Pause"; $("#t-go").classList.remove("btn-solid");
+  clearInterval(state.tick);
   state.tick = setInterval(() => {
-    state.sec = Math.max(0, state.sec - 1);
+    state.sec = Math.max(0, Math.round((state.deadline - Date.now()) / 1000));
     zeigeTimer();
     if (state.sec === 0) { timerStop(); chime(); }
-  }, 1000);
-  zeigeTimer(); zeichneShare();
+  }, 250);
+  zeigeTimer(); uhrSenden();
 }
+
 function timerStop() {
+  const lief = state.running;
   state.running = false; state.deadline = 0; clearInterval(state.tick);
-  if (root.getAttribute("data-view") !== "sus") LS.del("uhr");
   $("#t-go").textContent = "▶ Start"; $("#t-go").classList.add("btn-solid");
-  zeigeTimer(); zeichneShare();
+  zeigeTimer();
+  if (lief || root.getAttribute("data-view") !== "sus") uhrSenden();
 }
+
+/* Zeit verändern — läuft der Timer, verschiebt sich der Endzeitpunkt mit,
+   und die Klasse bekommt die neue Zeit sofort. */
+function timerAendern(deltaSek) {
+  if (state.running) {
+    state.deadline = Math.max(Date.now(), state.deadline + deltaSek * 1000);
+    state.sec = Math.max(0, Math.round((state.deadline - Date.now()) / 1000));
+  } else {
+    state.sec = Math.max(0, state.sec + deltaSek);
+  }
+  if (state.sec > state.secTotal) state.secTotal = state.sec;   // Balken bleibt sinnvoll
+  zeigeTimer(); uhrSenden();
+}
+
 function timerAufSchritt(still) {
   if (!still) timerStop();
   state.secTotal = (SCHRITTE[state.i].timerMin || 10) * 60;
   state.sec = state.secTotal;
+  if (state.running) state.deadline = Date.now() + state.sec * 1000;
   zeigeTimer();
+  if (!still) uhrSenden();
 }
-function timerSetz(min) { timerStop(); state.secTotal = min * 60; state.sec = state.secTotal; zeigeTimer(); }
+
+function timerSetz(min) {
+  timerStop();
+  state.secTotal = min * 60; state.sec = state.secTotal;
+  zeigeTimer(); uhrSenden();
+}
 
 /* ===========================================================================
    TEAMS AUSLOSEN
@@ -2132,6 +2198,11 @@ function klasseUhrSetzen(endeSek, dauerSek) {
   klasse.ende = endeSek; klasse.dauer = dauerSek;
   if (neu) klasse.gezeigt = {};
   LS.set("uhr", { e:endeSek, d:dauerSek });
+  klasseUhrZeichnen();
+}
+
+function uhrAus() {
+  klasse.ende = 0; klasse.dauer = 0; klasse.gezeigt = {};
   klasseUhrZeichnen();
 }
 
@@ -2320,10 +2391,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* Timer */
   $("#t-go").onclick     = () => state.running ? timerStop() : timerStart();
-  $("#t-reset").onclick  = () => { timerStop(); state.sec = state.secTotal; zeigeTimer(); };
-  $("#t-m1").onclick     = () => { state.sec = Math.max(0, state.sec - 60); zeigeTimer(); };
-  $("#t-p1").onclick     = () => { state.sec += 60; zeigeTimer(); };
-  $("#t-p5").onclick     = () => { state.sec += 300; zeigeTimer(); };
+  $("#t-reset").onclick  = () => { timerStop(); state.sec = state.secTotal; zeigeTimer(); uhrSenden(); };
+  $("#t-m1").onclick     = () => timerAendern(-60);
+  $("#t-p1").onclick     = () => timerAendern(60);
+  $("#t-p5").onclick     = () => timerAendern(300);
   $("#t-preset").onclick = () => timerAufSchritt();
   $("#r-pitch").onclick  = () => { timerSetz(3); timerStart(); };
   $("#r-fb").onclick     = () => { timerSetz(4); timerStart(); };
@@ -2457,8 +2528,19 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("storage", (e) => {
     if (e.key !== "vc_uhr" || root.getAttribute("data-view") !== "sus") return;
     const u = LS.get("uhr", null);
-    if (u && u.e) { klasseUhrSetzen(u.e, u.d); }
-    else { klasse.ende = 0; klasse.dauer = 0; klasse.gezeigt = {}; klasseUhrZeichnen(); }
+    if (!u) { uhrAus(); return; }
+
+    // Hat die Lehrperson den Schritt gewechselt? Dann mitgehen. Das geht nur
+    // auf demselben Gerät; fremde Geräte tippen die Nummer oder scannen neu.
+    if (typeof u.s === "number") {
+      const jetzt = location.hash.replace(/^#/, "").split("~")[0];
+      if (jetzt !== `sus-${u.s + 1}`) {
+        const nutz = location.hash.split("~")[1];
+        location.hash = `sus-${u.s + 1}` + (nutz ? "~" + nutz : "");
+        return;   // hashchange zeichnet neu und holt die Uhr dort ab
+      }
+    }
+    if (u.e) klasseUhrSetzen(u.e, u.d); else uhrAus();
   });
 
   /* Start */

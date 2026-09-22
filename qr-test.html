@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR-Diagnose</title>
+<style>
+  body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#fff; color:#111;
+        margin:0; padding:24px; line-height:1.5; }
+  h1{ font-size:1.4rem; margin:0 0 4px; }
+  p.lead{ color:#555; margin:0 0 24px; max-width:60ch; }
+  .reihe{ display:flex; flex-wrap:wrap; gap:26px; }
+  .karte{ border:1px solid #ddd; border-radius:12px; padding:16px; background:#fff; }
+  .karte h2{ font-size:.82rem; text-transform:uppercase; letter-spacing:.06em; color:#666;
+             margin:0 0 4px; font-weight:800; }
+  .karte .wie{ font-size:.78rem; color:#888; margin:0 0 12px; }
+  .box{ background:#fff; display:inline-block; }
+  .gitter{ display:grid; background:#fff; }
+  .gitter i{ display:block; }
+  code{ background:#f2f2f2; padding:1px 5px; border-radius:4px; font-size:.85em; }
+  .ziel{ margin-top:28px; padding:14px 16px; background:#f7f7f7; border-radius:10px; max-width:70ch; }
+</style></head><body>
+
+<h1>QR-Diagnose</h1>
+<p class="lead">Viermal derselbe Inhalt, auf vier verschiedene Arten gezeichnet.
+Scanne der Reihe nach alle vier und merk dir, welche funktionieren.</p>
+
+<div class="reihe" id="raus"></div>
+
+<div class="ziel">
+  <b>Alle vier zeigen auf:</b> <code id="ziel"></code><br>
+  Wenn ein Scan klappt, landest du dort.
+</div>
+
+<script>
+const QRCode = (function () {
+
+  /* --- Galois-Feld GF(256), Primpolynom 0x11D ------------------------------ */
+  const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  (function initGF() {
+    let x = 1;
+    for (let i = 0; i < 255; i++) {
+      EXP[i] = x;
+      LOG[x] = i;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11D;
+    }
+    for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  })();
+
+  const gfMul = (a, b) => (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]];
+
+  /* --- Generatorpolynom fuer n Fehlerkorrektur-Codewoerter ----------------- */
+  function rsGenerator(n) {
+    let g = [1];
+    for (let i = 0; i < n; i++) {
+      const next = new Array(g.length + 1).fill(0);
+      for (let j = 0; j < g.length; j++) {
+        next[j] ^= g[j];
+        next[j + 1] ^= gfMul(g[j], EXP[i]);
+      }
+      g = next;
+    }
+    return g;
+  }
+
+  /* --- Reed-Solomon: Rest der Polynomdivision ------------------------------ */
+  function rsEncode(data, ecCount) {
+    const gen = rsGenerator(ecCount);
+    const res = new Array(data.length + ecCount).fill(0);
+    for (let i = 0; i < data.length; i++) res[i] = data[i];
+    for (let i = 0; i < data.length; i++) {
+      const factor = res[i];
+      if (factor === 0) continue;
+      for (let j = 0; j < gen.length; j++) res[i + j] ^= gfMul(gen[j], factor);
+    }
+    return res.slice(data.length);
+  }
+
+  /* --- Blockaufteilung fuer Fehlerkorrekturstufe M, Version 1-10 -----------
+     [ Gesamt-Codewoerter, EC-Codewoerter je Block,
+       Bloecke Gruppe 1, Datenwoerter je Block G1,
+       Bloecke Gruppe 2, Datenwoerter je Block G2 ]                          */
+  const BLOCKS_L = {
+     1: [ 26,  7, 1, 19, 0,  0],
+     2: [ 44, 10, 1, 34, 0,  0],
+     3: [ 70, 15, 1, 55, 0,  0],
+     4: [100, 20, 1, 80, 0,  0],
+     5: [134, 26, 1,108, 0,  0],
+     6: [172, 18, 2, 68, 0,  0],
+     7: [196, 20, 2, 78, 0,  0],
+     8: [242, 24, 2, 97, 0,  0],
+     9: [292, 30, 2,116, 0,  0],
+    10: [346, 18, 2, 68, 2, 69]
+  };
+
+  const BLOCKS_M = {
+     1: [ 26, 10, 1, 16, 0,  0],
+     2: [ 44, 16, 1, 28, 0,  0],
+     3: [ 70, 26, 1, 44, 0,  0],
+     4: [100, 18, 2, 32, 0,  0],
+     5: [134, 24, 2, 43, 0,  0],
+     6: [172, 16, 4, 27, 0,  0],
+     7: [196, 18, 4, 31, 0,  0],
+     8: [242, 22, 2, 38, 2, 39],
+     9: [292, 22, 3, 36, 2, 37],
+    10: [346, 26, 4, 43, 1, 44]
+  };
+
+  const ALIGN = {
+     1: [], 2: [6,18], 3: [6,22], 4: [6,26], 5: [6,30],
+     6: [6,34], 7: [6,22,38], 8: [6,24,42], 9: [6,26,46], 10: [6,28,50]
+  };
+
+  const REMAINDER = {1:0, 2:7, 3:7, 4:7, 5:7, 6:7, 7:0, 8:0, 9:0, 10:0};
+
+  function tabelle(stufe) { return stufe === "L" ? BLOCKS_L : BLOCKS_M; }
+
+  function dataCapacityBytes(version, stufe = "M") {
+    const b = tabelle(stufe)[version];
+    const dataWords = b[2] * b[3] + b[4] * b[5];
+    const countBits = version >= 10 ? 16 : 8;
+    return Math.floor((dataWords * 8 - 4 - countBits) / 8);
+  }
+
+  function pickVersion(byteLen, stufe) {
+    for (let v = 1; v <= 10; v++) if (byteLen <= dataCapacityBytes(v, stufe)) return v;
+    return null;   // zu lang — der Aufrufer entscheidet, was dann passiert
+  }
+
+  // Wie viele Bytes passen maximal? Fuer die Warnung an die Lehrperson.
+  function maxBytes(stufe = "M") { return dataCapacityBytes(10, stufe); }
+
+  /* --- BCH-Codes fuer Format- und Versionsinformation ---------------------- */
+  function bch(value, generator, genBits) {
+    let v = value << (genBits - 1);
+    const genLen = generator.toString(2).length;
+    while (v.toString(2).length >= genLen) {
+      v ^= generator << (v.toString(2).length - genLen);
+    }
+    return v;
+  }
+
+  function formatBits(maskId, stufe = "M") {
+    // Kennung der Fehlerkorrekturstufe: L = 0b01, M = 0b00
+    const data = ((stufe === "L" ? 0b01 : 0b00) << 3) | maskId;
+    const rest = bch(data, 0x537, 11);
+    return ((data << 10) | rest) ^ 0x5412;
+  }
+
+  function versionBits(version) {
+    const rest = bch(version, 0x1F25, 13);
+    return (version << 12) | rest;
+  }
+
+  /* --- Maskenfunktionen ---------------------------------------------------- */
+  const MASKS = [
+    (r, c) => (r + c) % 2 === 0,
+    (r, c) => r % 2 === 0,
+    (r, c) => c % 3 === 0,
+    (r, c) => (r + c) % 3 === 0,
+    (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+    (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
+    (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
+    (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0
+  ];
+
+  /* --- Bitstrom aus Text erzeugen ------------------------------------------ */
+  function buildBitstream(bytes, version, stufe) {
+    const bits = [];
+    const push = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); };
+
+    push(0b0100, 4);                                   // Modus: Byte
+    push(bytes.length, version >= 10 ? 16 : 8);        // Laengenfeld
+    for (const b of bytes) push(b, 8);
+
+    const blk = tabelle(stufe)[version];
+    const totalDataWords = blk[2] * blk[3] + blk[4] * blk[5];
+    const capacityBits = totalDataWords * 8;
+
+    for (let i = 0; i < 4 && bits.length < capacityBits; i++) bits.push(0);  // Terminator
+    while (bits.length % 8 !== 0) bits.push(0);                              // auf Byte auffuellen
+
+    const pad = [0xEC, 0x11];
+    let p = 0;
+    const words = [];
+    for (let i = 0; i < bits.length; i += 8) {
+      let w = 0;
+      for (let j = 0; j < 8; j++) w = (w << 1) | bits[i + j];
+      words.push(w);
+    }
+    while (words.length < totalDataWords) words.push(pad[p++ % 2]);
+    return words;
+  }
+
+  /* --- Bloecke bilden, Fehlerkorrektur anhaengen, verschachteln ------------ */
+  function interleave(dataWords, version, stufe) {
+    const [, ecPerBlock, g1, d1, g2, d2] = tabelle(stufe)[version];
+    const blocks = [], ecBlocks = [];
+    let pos = 0;
+
+    for (let i = 0; i < g1; i++) { blocks.push(dataWords.slice(pos, pos + d1)); pos += d1; }
+    for (let i = 0; i < g2; i++) { blocks.push(dataWords.slice(pos, pos + d2)); pos += d2; }
+    for (const b of blocks) ecBlocks.push(rsEncode(b, ecPerBlock));
+
+    const out = [];
+    const maxData = Math.max(d1, d2 || 0);
+    for (let i = 0; i < maxData; i++)
+      for (const b of blocks) if (i < b.length) out.push(b[i]);
+    for (let i = 0; i < ecPerBlock; i++)
+      for (const b of ecBlocks) out.push(b[i]);
+
+    return out;
+  }
+
+  /* --- Matrix aufbauen ----------------------------------------------------- */
+  function buildMatrix(version) {
+    const size = version * 4 + 17;
+    const m = Array.from({length: size}, () => new Array(size).fill(null));
+    const reserved = Array.from({length: size}, () => new Array(size).fill(false));
+
+    function placeFinder(row, col) {
+      for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) {
+        const rr = row + r, cc = col + c;
+        if (rr < 0 || rr >= size || cc < 0 || cc >= size) continue;
+        const onBorder = (r === 0 || r === 6) && c >= 0 && c <= 6;
+        const onSide   = (c === 0 || c === 6) && r >= 0 && r <= 6;
+        const inCore   = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+        m[rr][cc] = (onBorder || onSide || inCore) ? 1 : 0;
+        reserved[rr][cc] = true;
+      }
+    }
+    placeFinder(0, 0); placeFinder(0, size - 7); placeFinder(size - 7, 0);
+
+    // Taktmuster
+    for (let i = 8; i < size - 8; i++) {
+      m[6][i] = i % 2 === 0 ? 1 : 0; reserved[6][i] = true;
+      m[i][6] = i % 2 === 0 ? 1 : 0; reserved[i][6] = true;
+    }
+
+    // Ausrichtungsmuster
+    const centers = ALIGN[version];
+    for (const r of centers) for (const c of centers) {
+      if ((r <= 8 && c <= 8) || (r <= 8 && c >= size - 9) || (r >= size - 9 && c <= 8)) continue;
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+        const edge = Math.max(Math.abs(dr), Math.abs(dc));
+        m[r + dr][c + dc] = (edge === 1) ? 0 : 1;
+        reserved[r + dr][c + dc] = true;
+      }
+    }
+
+    // Dunkles Modul
+    m[size - 8][8] = 1; reserved[size - 8][8] = true;
+
+    // Bereiche fuer Formatinformation reservieren
+    for (let i = 0; i <= 8; i++) {
+      if (!reserved[8][i])        { reserved[8][i] = true; m[8][i] = 0; }
+      if (!reserved[i][8])        { reserved[i][8] = true; m[i][8] = 0; }
+    }
+    for (let i = 0; i < 8; i++) {
+      if (!reserved[8][size - 1 - i]) { reserved[8][size - 1 - i] = true; m[8][size - 1 - i] = 0; }
+      if (!reserved[size - 1 - i][8]) { reserved[size - 1 - i][8] = true; m[size - 1 - i][8] = 0; }
+    }
+
+    // Versionsinformation ab Version 7
+    if (version >= 7) {
+      const vb = versionBits(version);
+      for (let i = 0; i < 18; i++) {
+        const bit = (vb >> i) & 1;
+        const r = Math.floor(i / 3), c = i % 3;
+        m[r][size - 11 + c] = bit; reserved[r][size - 11 + c] = true;
+        m[size - 11 + c][r] = bit; reserved[size - 11 + c][r] = true;
+      }
+    }
+
+    return {m, reserved, size};
+  }
+
+  /* --- Datenbits im Zickzack platzieren ------------------------------------ */
+  function placeData(m, reserved, size, words, version) {
+    const bits = [];
+    for (const w of words) for (let i = 7; i >= 0; i--) bits.push((w >> i) & 1);
+    for (let i = 0; i < REMAINDER[version]; i++) bits.push(0);
+
+    let idx = 0, upward = true;
+    for (let right = size - 1; right > 0; right -= 2) {
+      if (right === 6) right = 5;                       // Spalte 6 ueberspringen
+      for (let v = 0; v < size; v++) {
+        const row = upward ? size - 1 - v : v;
+        for (let k = 0; k < 2; k++) {
+          const col = right - k;
+          if (reserved[row][col]) continue;
+          m[row][col] = idx < bits.length ? bits[idx] : 0;
+          idx++;
+        }
+      }
+      upward = !upward;
+    }
+    return idx;
+  }
+
+  /* --- Bewertung der Maskierung (Regeln 1-4) ------------------------------- */
+  function penalty(m, size) {
+    let score = 0;
+
+    // Regel 1: Reihen gleicher Farbe
+    for (let i = 0; i < size; i++) {
+      for (const isRow of [true, false]) {
+        let run = 1;
+        for (let j = 1; j < size; j++) {
+          const a = isRow ? m[i][j] : m[j][i];
+          const b = isRow ? m[i][j - 1] : m[j - 1][i];
+          if (a === b) { run++; }
+          else { if (run >= 5) score += run - 2; run = 1; }
+        }
+        if (run >= 5) score += run - 2;
+      }
+    }
+
+    // Regel 2: gleichfarbige 2x2-Bloecke
+    for (let r = 0; r < size - 1; r++) for (let c = 0; c < size - 1; c++) {
+      const v = m[r][c];
+      if (v === m[r][c + 1] && v === m[r + 1][c] && v === m[r + 1][c + 1]) score += 3;
+    }
+
+    // Regel 3: finder-aehnliche Muster
+    const p1 = [1,0,1,1,1,0,1,0,0,0,0], p2 = [0,0,0,0,1,0,1,1,1,0,1];
+    for (let i = 0; i < size; i++) for (let j = 0; j <= size - 11; j++) {
+      const row = [], col = [];
+      for (let k = 0; k < 11; k++) { row.push(m[i][j + k]); col.push(m[j + k][i]); }
+      const eq = (a, b) => a.every((x, n) => x === b[n]);
+      if (eq(row, p1) || eq(row, p2)) score += 40;
+      if (eq(col, p1) || eq(col, p2)) score += 40;
+    }
+
+    // Regel 4: Abweichung vom 50%-Anteil
+    let dark = 0;
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (m[r][c]) dark++;
+    const pct = (dark * 100) / (size * size);
+    score += Math.floor(Math.abs(pct - 50) / 5) * 10;
+
+    return score;
+  }
+
+  /* --- Hauptfunktion -------------------------------------------------------- */
+  function encode(text, stufe = "M") {
+    const bytes = Array.from(new TextEncoder().encode(text));
+    const version = pickVersion(bytes.length, stufe);
+    if (version === null) return null;
+    const words = interleave(buildBitstream(bytes, version, stufe), version, stufe);
+
+    let best = null;
+    for (let maskId = 0; maskId < 8; maskId++) {
+      const {m, reserved, size} = buildMatrix(version);
+      placeData(m, reserved, size, words, version);
+
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
+        if (!reserved[r][c] && MASKS[maskId](r, c)) m[r][c] ^= 1;
+
+      // Formatinformation an beiden vorgeschriebenen Stellen ablegen.
+      // Achtung: senkrechter und waagrechter Lauf gehoeren NICHT zur selben
+      // Kopie. Kopie 1 ist die L-Form um den oberen linken Sucher (Spalte 8
+      // oben + Zeile 8 links), Kopie 2 liegt verteilt auf Zeile 8 rechts und
+      // Spalte 8 unten. Vertauscht man das, sieht der Code richtig aus, laesst
+      // sich aber von keinem Scanner lesen.
+      const fb = formatBits(maskId, stufe);
+      for (let i = 0; i < 15; i++) {
+        const bit = (fb >> i) & 1;
+
+        // senkrechter Lauf in Spalte 8
+        if (i < 6)        m[i][8] = bit;              // Zeilen 0-5
+        else if (i < 8)   m[i + 1][8] = bit;          // Zeilen 7 und 8
+        else              m[size - 15 + i][8] = bit;  // Zeilen size-7 .. size-1
+
+        // waagrechter Lauf in Zeile 8
+        if (i < 8)        m[8][size - 1 - i] = bit;   // Spalten size-1 .. size-8
+        else if (i === 8) m[8][7] = bit;
+        else              m[8][14 - i] = bit;         // Spalten 5 .. 0
+      }
+      m[size - 8][8] = 1;
+
+      const score = penalty(m, size);
+      if (!best || score < best.score) best = {m, size, score, maskId, version};
+    }
+    return best;
+  }
+
+  /* --- SVG-Ausgabe ---------------------------------------------------------- */
+  function toSVG(text, pixelSize = 220, stufe = "M", dark = "#000000", light = "#ffffff") {
+    const ergebnis = encode(text, stufe);
+    if (!ergebnis) return null;              // zu lang — kein Absturz, der Aufrufer reagiert
+    const {m, size} = ergebnis;
+    const quiet = 4;
+    const total = size + quiet * 2;
+
+    // Kantenlaenge auf ein ganzzahliges Vielfaches der Modulzahl bringen.
+    // Bei krummen Werten (250 / 33 = 7,58 Pixel) rundet der Browser jedes
+    // Modul einzeln; Reihen werden dann ungleich breit, was manche Scanner
+    // aus dem Tritt bringt. Ganzzahlig ist jedes Modul exakt gleich gross.
+    const proModul = Math.max(2, Math.round(pixelSize / total));
+    const kante = proModul * total;
+
+    let path = "";
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
+      if (m[r][c]) path += `M${c + quiet} ${r + quiet}h1v1h-1z`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" `
+         + `width="${kante}" height="${kante}" shape-rendering="crispEdges" role="img" `
+         + `aria-label="QR-Code">`
+         + `<rect width="${total}" height="${total}" fill="${light}"/>`
+         + `<path d="${path}" fill="${dark}"/></svg>`;
+  }
+
+  return {toSVG, encode, maxBytes, _internal: {EXP, LOG, gfMul, rsEncode, rsGenerator,
+          buildBitstream, interleave, BLOCKS_M, BLOCKS_L, dataCapacityBytes, formatBits, versionBits}};
+})();
+
+const ZIEL = "https://duck.ai";
+document.getElementById("ziel").textContent = ZIEL;
+const raus = document.getElementById("raus");
+
+function karte(titel, wie, knoten) {
+  const d = document.createElement("div");
+  d.className = "karte";
+  d.innerHTML = "<h2>" + titel + "</h2><p class=\"wie\">" + wie + "</p>";
+  d.appendChild(knoten);
+  raus.appendChild(d);
+}
+
+// A — SVG, ganzzahlige Modulgrösse, reines Schwarz (die neue Fassung)
+const a = document.createElement("div");
+a.className = "box";
+a.innerHTML = QRCode.toSVG(ZIEL, 264, "M");
+karte("A — SVG ganzzahlig", "8 Pixel pro Modul, #000", a);
+
+// B — SVG, krumme Skalierung wie vorher
+const b = document.createElement("div");
+b.className = "box";
+const svgB = QRCode.toSVG(ZIEL, 264, "M").replace(/width="\d+" height="\d+"/, "width=\"250\" height=\"250\"");
+b.innerHTML = svgB;
+karte("B — SVG krumm", "250px auf 33 Module = 7,58 px", b);
+
+// C — Gitter aus DIV-Elementen, ganz ohne SVG
+const {m, size} = QRCode.encode(ZIEL, "M");
+const g = document.createElement("div");
+g.className = "gitter";
+const px = 8, ruhe = 4;
+g.style.gridTemplate = "repeat(" + (size+ruhe*2) + ", " + px + "px) / repeat(" + (size+ruhe*2) + ", " + px + "px)";
+for (let r = -ruhe; r < size+ruhe; r++) for (let c = -ruhe; c < size+ruhe; c++) {
+  const i = document.createElement("i");
+  const dunkel = r>=0 && r<size && c>=0 && c<size && m[r][c];
+  i.style.background = dunkel ? "#000" : "#fff";
+  g.appendChild(i);
+}
+karte("C — DIV-Gitter", "ohne SVG, reine HTML-Kästchen", g);
+
+// D — Canvas, dritter Zeichenweg
+const cv = document.createElement("canvas");
+const t = size + ruhe*2;
+cv.width = t*px; cv.height = t*px;
+cv.style.width = (t*px)+"px";
+const ctx = cv.getContext("2d");
+ctx.fillStyle = "#fff"; ctx.fillRect(0,0,cv.width,cv.height);
+ctx.fillStyle = "#000";
+for (let r=0;r<size;r++) for (let c=0;c<size;c++)
+  if (m[r][c]) ctx.fillRect((c+ruhe)*px, (r+ruhe)*px, px, px);
+karte("D — Canvas", "auf eine Zeichenfläche gemalt", cv);
+</script>
+</body></html>
